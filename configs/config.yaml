@@ -1,0 +1,16 @@
+app:
+  name: kairos # application name
+  snowflake_node: 1 # snowflake worker node (0-1023)
+
+logger:
+  level: info # minimum log level (debug/info/warn/error)
+  file: logs/kairos.log # log file path, empty disables file output
+
+database:
+  dsn: kairos.db # data source name, a sqlite file path
+  max_open_conns: 10 # max open connections (default to 10)
+  max_idle_conns: 2 # max idle connections (default to 2)
+  conn_max_lifetime: 30 # max connection lifetime in minutes (default to 30)
+
+cache:
+  ttl: 300 # expiration in seconds (default to 300)
