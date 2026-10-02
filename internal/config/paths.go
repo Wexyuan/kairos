@@ -12,6 +12,7 @@ const (
 	configFileName = "config.yaml"
 	dataDirName    = "data"
 	webviewDirName = "webview"
+	moduleFileName = "go.mod"
 )
 
 // ResolveConfigPath returns the config file path.
@@ -34,10 +35,13 @@ func ResolveConfigPath() (string, error) {
 
 // ResolveStorageRoot returns the writable storage root path.
 func ResolveStorageRoot(appName string) (string, error) {
-	if dir, err := resolveExecutableDir(); err == nil && isDir(filepath.Join(dir, dataDirName)) {
-		return dir, nil
+	exeDir, exeErr := resolveExecutableDir()
+
+	if exeErr == nil && isDir(filepath.Join(exeDir, dataDirName)) {
+		return exeDir, nil
 	}
-	if cwd, err := os.Getwd(); err == nil && isFile(filepath.Join(cwd, configDirName, configFileName)) {
+	if cwd, err := os.Getwd(); err == nil && (exeErr != nil || cwd != exeDir) &&
+		isFile(filepath.Join(cwd, moduleFileName)) && isFile(filepath.Join(cwd, configDirName, configFileName)) {
 		return cwd, nil
 	}
 
