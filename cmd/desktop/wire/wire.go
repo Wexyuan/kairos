@@ -1,0 +1,59 @@
+//go:build wireinject
+// +build wireinject
+
+package wire
+
+import (
+	"github.com/google/wire"
+	"github.com/wailsapp/wails/v3/pkg/application"
+
+	"github.com/Wexyuan/kairos"
+	"github.com/Wexyuan/kairos/internal/config"
+	"github.com/Wexyuan/kairos/internal/module/base"
+	"github.com/Wexyuan/kairos/internal/module/desktop"
+)
+
+// InfraProviderSet defines the infrastructure providers.
+// Keep it ready for later modules: add it back to wire.Build once something consumes it.
+var InfraProviderSet = wire.NewSet(
+	provideDatabase,
+	provideSnowflake,
+	provideCache,
+)
+
+// ModuleProviderSet defines the business module providers.
+var ModuleProviderSet = wire.NewSet(
+	base.NewRepository,
+	desktop.NewWindowService,
+)
+
+// NewApp creates a new application.
+func NewApp(
+	cfg *config.Config,
+	webviewDataPath string,
+	winSvc *desktop.WindowService,
+) *application.App {
+	return application.New(
+		application.Options{
+			Name: cfg.App.Name,
+			Windows: application.WindowsOptions{
+				WebviewUserDataPath: webviewDataPath,
+			},
+			Services: []application.Service{
+				application.NewService(winSvc),
+			},
+			Assets: application.AssetOptions{
+				Handler: application.AssetFileServerFS(kairos.Assets),
+			},
+		},
+	)
+}
+
+// NewWireApp wires and builds the application.
+func NewWireApp(cfg *config.Config) (*application.App, error) {
+	panic(wire.Build(
+		provideWebviewDataPath,
+		ModuleProviderSet,
+		NewApp,
+	))
+}
