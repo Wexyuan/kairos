@@ -23,7 +23,8 @@ func NewTray(win application.Window, name string, icon []byte) *Tray {
 // RunTray runs the system tray.
 func (t *Tray) RunTray() {
 	// hide window when tray is clicked rather than close it directly.
-	t.win.OnWindowEvent(events.Windows.WindowClosing, func(*application.WindowEvent) {
+	t.win.RegisterHook(events.Common.WindowClosing, func(event *application.WindowEvent) {
+		event.Cancel()
 		t.win.Hide()
 	})
 
