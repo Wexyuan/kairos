@@ -54,7 +54,7 @@ func main() {
 	// 5. Migrate the database.
 	dsn, err := appconfig.ResolveStoragePath(root, cfg.Database.DSN)
 	if err != nil {
-		log.Fatalf("[main] resolve database storage path error: %v", err)
+		lg.Fatalf("[main] resolve database storage path error: %v", err)
 	}
 	db, err := database.New(database.Options{
 		DSN:             dsn,
@@ -63,10 +63,10 @@ func main() {
 		ConnMaxLifetime: cfg.Database.ConnMaxLifetime,
 	})
 	if err != nil {
-		log.Fatalf("[main] init database error: dsn=%s: %v", cfg.Database.DSN, err)
+		lg.Fatalf("[main] init database error: dsn=%s: %v", cfg.Database.DSN, err)
 	}
 	if err := db.AutoMigrate(models...); err != nil {
-		log.Fatalf("[main] migrate models error: %v", err)
+		lg.Fatalf("[main] migrate models error: %v", err)
 	}
 	if err := db.Close(); err != nil {
 		lg.Errorf("close migration database error: %v", err)
@@ -75,7 +75,7 @@ func main() {
 	// 6. Build the application.
 	app, err := wire.NewWireApp(&cfg)
 	if err != nil {
-		log.Fatalf("[main] build application error: %v", err)
+		lg.Fatalf("[main] build application error: %v", err)
 	}
 
 	// 7. Create the main window.
@@ -94,7 +94,8 @@ func main() {
 	desktop.NewTray(win, cfg.App.Name, kairos.TrayIcon).RunTray()
 
 	// 9. Run the application.
+	lg.Infof("[main] application starting: config=%s root=%s", cfgPath, root)
 	if err := app.Run(); err != nil {
-		log.Fatalf("[main] run application error: %v", err)
+		lg.Fatalf("[main] run application error: %v", err)
 	}
 }
