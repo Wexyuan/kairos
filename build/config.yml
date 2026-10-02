@@ -1,0 +1,70 @@
+# Config for the wails3 build assets.
+# After changing `info` or `fileAssociations`, run `wails3 task common:update:build-assets`.
+# The regeneration overwrites hand edits in the build assets.
+version: '3'
+
+# Product metadata for the generated build assets.
+info:
+  companyName: "Wexyuan" # The name of the company
+  productName: "Kairos" # The name of the application
+  productIdentifier: "com.wexyuan.kairos" # The unique product identifier
+  description: "Kairos personal office application" # The application description
+  copyright: "(c) 2026, Wexyuan" # Copyright text
+  comments: "Kairos personal office application" # Comments
+  version: "0.1.0" # The application version
+  # cfBundleIconName: "appicon" # The macOS icon name in Assets.car icon bundles (optional)
+  #                               # Should match the name of your .icon file without the extension
+  #                               # If not set and Assets.car exists, defaults to "appicon"
+
+# Dev mode configuration
+dev_mode:
+  root_path: .
+  log_level: warn
+  debounce: 1000
+  ignore:
+    dir:
+      - .git
+      - node_modules
+      - frontend
+      - bin
+    file:
+      - .DS_Store
+      - .gitignore
+      - .gitkeep
+      - "*_test.go"
+    watched_extension:
+      - "*.go"
+      - "*.js" # Watch for changes to JS/TS files included using the //wails:include directive.
+      - "*.ts" # The frontend directory will be excluded entirely by the setting above.
+    git_ignore: true
+  executes:
+    # `wails3 build` assumes a root main package; build via the task pipeline.
+    - cmd: wails3 task build DEV=true
+      type: blocking
+    - cmd: wails3 task common:dev:frontend
+      type: background
+      # The standard frontend task waits up to 60s for HTTP 200 from
+      # FRONTEND_DEVSERVER_URL before starting the app. Override if needed;
+      # custom background commands can opt in with the same readiness block.
+      # readiness:
+      #   http: "http://127.0.0.1:9245/"
+      #   timeout: "60s"
+      #   interval: "200ms"
+    - cmd: wails3 task run
+      type: primary
+      exit_policy: shutdown
+
+# File Associations
+# More information at: https://v3.wails.io/noit/done/yet
+fileAssociations:
+#  - ext: wails
+#    name: Wails
+#    description: Wails Application File
+#    iconName: wailsFileIcon
+#    role: Editor
+#  - ext: jpg
+#    name: JPEG
+#    description: Image File
+#    iconName: jpegFileIcon
+#    role: Editor
+#    mimeType: image/jpeg  # (optional)
