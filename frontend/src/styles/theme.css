@@ -1,0 +1,26 @@
+html,
+.theme-light {
+  color-scheme: light;
+  --app-ink: #1a1a1a;
+  --app-page: #f5f5f5;
+  --app-brand: #336699;
+  --app-surface: color-mix(in srgb, var(--app-brand) 5%, var(--app-page));
+}
+
+html.dark,
+.theme-dark {
+  color-scheme: dark;
+  --app-ink: #e5e5e5;
+  --app-page: #101010;
+  --app-brand: #6699cc;
+  --app-surface: color-mix(in srgb, var(--app-brand) 5%, var(--app-page));
+}
+
+html {
+  background: var(--app-page);
+}
+
+::selection {
+  color: var(--app-page);
+  background: var(--app-brand);
+}
