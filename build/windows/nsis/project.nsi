@@ -1,52 +1,25 @@
 Unicode true
+ManifestDPIAware true
 
-####
-## Please note: Template replacements don't work in this file. They are provided with default defines like
-## mentioned underneath.
-## If the keyword is not defined, "wails_tools.nsh" will populate them.
-## If they are defined here, "wails_tools.nsh" will not touch them. This allows you to use this project.nsi manually
-## from outside of Wails for debugging and development of the installer.
-## 
-## For development first make a wails nsis build to populate the "wails_tools.nsh":
-## > wails3 task windows:build
-## Then you can call makensis on this file with specifying the path to your binary:
-## For a AMD64 only installer:
-## > makensis -DARG_WAILS_AMD64_BINARY=..\..\..\bin\kairos.exe project.nsi
-## For a ARM64 only installer:
-## > makensis -DARG_WAILS_ARM64_BINARY=..\..\..\bin\kairos.exe project.nsi
-## For a installer with both architectures:
-## > makensis -DARG_WAILS_AMD64_BINARY=..\..\..\bin\kairos-amd64.exe -DARG_WAILS_ARM64_BINARY=..\..\..\bin\kairos-arm64.exe project.nsi
-##
-## The config directory defaults to "..\..\..\configs"; override it with:
-## > -DARG_WAILS_CONFIGS_DIR="D:\path\to\configs"
-####
-## The following information is taken from the wails_tools.nsh file, but they can be overwritten here.
-####
-## !define INFO_PROJECTNAME    "kairos"            # Default "kairos"
-## !define INFO_COMPANYNAME    "Wexyuan"           # Default "Wexyuan"
-## !define INFO_PRODUCTNAME    "Kairos"            # Default "Kairos"
-## !define INFO_PRODUCTVERSION "0.1.0"             # Default "0.1.0"
-## !define INFO_COPYRIGHT      "(c) 2026, Wexyuan" # Default "© 2026, Wexyuan"
-###
-## !define PRODUCT_EXECUTABLE  "kairos.exe"        # Default "kairos.exe"
-## !define UNINST_KEY_NAME     "WexyuanKairos"     # Default "${INFO_COMPANYNAME}${INFO_PRODUCTNAME}"
-####
-## !define REQUEST_EXECUTION_LEVEL "admin"         # Default "admin"  see also https://nsis.sourceforge.io/Docs/Chapter4.html
-## !define WAILS_INSTALL_SCOPE     "user"          # Default "machine" - set to "user" for per-user install ($LOCALAPPDATA) without UAC prompt
-####
-## Include the wails tools
-####
 !include "wails_tools.nsh"
+!include "MUI.nsh"
+!include "nsDialogs.nsh"
 
-# Ship the config directory next to the executable; -DARG_WAILS_CONFIGS_DIR overrides it.
 !ifndef ARG_WAILS_CONFIGS_DIR
     !define ARG_WAILS_CONFIGS_DIR "..\..\..\configs"
 !endif
 
-# The version information for this two must consist of 4 parts
+Name "${INFO_PRODUCTNAME}"
+OutFile "..\..\..\bin\${INFO_PROJECTNAME}-${ARCH}-installer.exe"
+!if "${WAILS_INSTALL_SCOPE}" == "user"
+    InstallDir "$LOCALAPPDATA\Programs\${INFO_PRODUCTNAME}"
+!else
+    InstallDir "$PROGRAMFILES64\${INFO_COMPANYNAME}\${INFO_PRODUCTNAME}"
+!endif
+
+# Version information (4 parts required).
 VIProductVersion "${INFO_PRODUCTVERSION}.0"
 VIFileVersion    "${INFO_PRODUCTVERSION}.0"
-
 VIAddVersionKey "CompanyName"     "${INFO_COMPANYNAME}"
 VIAddVersionKey "FileDescription" "${INFO_PRODUCTNAME} Installer"
 VIAddVersionKey "ProductVersion"  "${INFO_PRODUCTVERSION}"
@@ -54,79 +27,153 @@ VIAddVersionKey "FileVersion"     "${INFO_PRODUCTVERSION}"
 VIAddVersionKey "LegalCopyright"  "${INFO_COPYRIGHT}"
 VIAddVersionKey "ProductName"     "${INFO_PRODUCTNAME}"
 
-# Enable HiDPI support. https://nsis.sourceforge.io/Reference/ManifestDPIAware
-ManifestDPIAware true
-
-!include "MUI.nsh"
+# Interface.
+ShowInstDetails show
 
 !define MUI_ICON "..\icon.ico"
 !define MUI_UNICON "..\icon.ico"
-# !define MUI_WELCOMEFINISHPAGE_BITMAP "resources\leftimage.bmp" #Include this to add a bitmap on the left side of the Welcome Page. Must be a size of 164x314
-!define MUI_FINISHPAGE_NOAUTOCLOSE # Wait on the INSTFILES page so the user can take a look into the details of the installation steps
-!define MUI_ABORTWARNING # This will warn the user if they exit from the installer.
+!define MUI_ABORTWARNING
+!define MUI_FINISHPAGE_NOAUTOCLOSE
+!define MUI_FINISHPAGE_RUN "$INSTDIR\${PRODUCT_EXECUTABLE}"
+!define MUI_FINISHPAGE_RUN_TEXT "Launch ${INFO_PRODUCTNAME}"
 
-!insertmacro MUI_PAGE_WELCOME # Welcome to the installer page.
-# !insertmacro MUI_PAGE_LICENSE "resources\eula.txt" # Adds a EULA page to the installer
-!insertmacro MUI_PAGE_DIRECTORY # In which folder install page.
-!insertmacro MUI_PAGE_INSTFILES # Installing page.
-!insertmacro MUI_PAGE_FINISH # Finished installation page.
+!insertmacro MUI_PAGE_WELCOME
+!insertmacro MUI_PAGE_DIRECTORY
+!insertmacro MUI_PAGE_INSTFILES
+!insertmacro MUI_PAGE_FINISH
 
-!insertmacro MUI_UNPAGE_INSTFILES # Uninstalling page
+Var DeleteLocalUserDataCheckbox
+Var DeleteLocalUserData
+Var SavedLocalAppData
+Var SavedAppData
 
-!insertmacro MUI_LANGUAGE "English" # Set the Language of the installer
+UninstPage custom un.LocalUserDataPage un.LocalUserDataPageLeave
+!insertmacro MUI_UNPAGE_INSTFILES
 
-## The following two statements can be used to sign the installer and the uninstaller. The path to the binaries are provided in %1
+!insertmacro MUI_LANGUAGE "English"
+
+# Signing hooks.
 #!uninstfinalize 'signtool --file "%1"'
 #!finalize 'signtool --file "%1"'
 
-Name "${INFO_PRODUCTNAME}"
-OutFile "..\..\..\bin\${INFO_PROJECTNAME}-${ARCH}-installer.exe" # Name of the installer's file.
-!if "${WAILS_INSTALL_SCOPE}" == "user"
-    InstallDir "$LOCALAPPDATA\Programs\${INFO_PRODUCTNAME}"
-!else
-    InstallDir "$PROGRAMFILES64\${INFO_COMPANYNAME}\${INFO_PRODUCTNAME}"
-!endif
-ShowInstDetails show # This will always show the installation details.
-
+# Installer callbacks.
 Function .onInit
-   !insertmacro wails.checkArchitecture
+    !insertmacro wails.checkArchitecture
+
+    SetRegView 64
+    !if "${WAILS_INSTALL_SCOPE}" == "user"
+        ReadRegStr $0 HKCU "${UNINST_KEY}" "InstallLocation"
+    !else
+        ReadRegStr $0 HKLM "${UNINST_KEY}" "InstallLocation"
+    !endif
+    ${If} $0 != ""
+        StrCpy $INSTDIR $0
+    ${EndIf}
 FunctionEnd
 
-Section
-    !insertmacro wails.setShellContext
+# Uninstaller callbacks.
+Function un.onInit
+    ${IfNot} ${FileExists} "$INSTDIR\${PRODUCT_EXECUTABLE}"
+        Return
+    ${EndIf}
 
+    ClearErrors
+    FileOpen $0 "$INSTDIR\${PRODUCT_EXECUTABLE}" a
+    ${IfNot} ${Errors}
+        FileClose $0
+        Return
+    ${EndIf}
+
+    SetErrorLevel 2
+    MessageBox MB_OK|MB_ICONEXCLAMATION "${INFO_PRODUCTNAME} is running, please close it first."
+    Abort
+FunctionEnd
+
+Function un.LocalUserDataPage
+    nsDialogs::Create 1018
+    Pop $0
+    ${If} $0 == error
+        Abort
+    ${EndIf}
+
+    ${NSD_CreateLabel} 0 0 100% 64u "Please choose whether to delete local user data.$\r$\n\
+    If checked, all local user data will be permanently deleted and cannot be recovered.$\r$\n\
+    If unchecked, all local user data will be retained on this computer and may be used again after reinstallation."
+    Pop $1
+
+    ${NSD_CreateCheckbox} 0 72u 100% 12u "Delete local user data"
+    Pop $DeleteLocalUserDataCheckbox
+
+    nsDialogs::Show
+FunctionEnd
+
+Function un.LocalUserDataPageLeave
+    ${NSD_GetState} $DeleteLocalUserDataCheckbox $DeleteLocalUserData
+FunctionEnd
+
+# Installer section.
+Section "Install"
+    ${If} ${FileExists} "$INSTDIR\${PRODUCT_EXECUTABLE}"
+        ClearErrors
+        FileOpen $0 "$INSTDIR\${PRODUCT_EXECUTABLE}" a
+        ${If} ${Errors}
+            MessageBox MB_OK|MB_ICONEXCLAMATION "${INFO_PRODUCTNAME} is running, please close it first."
+            SetErrorLevel 2
+            Abort
+        ${EndIf}
+        FileClose $0
+    ${EndIf}
+
+    !insertmacro wails.setShellContext
     !insertmacro wails.webview2runtime
 
     SetOutPath $INSTDIR
-    
     !insertmacro wails.files
 
-    # Copy the default configs next to the executable.
+    SetOverwrite off
     SetOutPath "$INSTDIR\configs"
     File /r "${ARG_WAILS_CONFIGS_DIR}\*.*"
+    SetOverwrite on
     SetOutPath $INSTDIR
 
     CreateShortcut "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
-    CreateShortCut "$DESKTOP\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
+    CreateShortcut "$DESKTOP\${INFO_PRODUCTNAME}.lnk" "$INSTDIR\${PRODUCT_EXECUTABLE}"
 
     !insertmacro wails.associateFiles
     !insertmacro wails.associateCustomProtocols
-    
     !insertmacro wails.writeUninstaller
+
+    WriteRegStr   SHELL_CONTEXT "${UNINST_KEY}" "InstallLocation" "$INSTDIR"
+    WriteRegStr   SHELL_CONTEXT "${UNINST_KEY}" "URLInfoAbout" "https://github.com/Wexyuan/kairos"
+    WriteRegDWORD SHELL_CONTEXT "${UNINST_KEY}" "NoModify" 1
+    WriteRegDWORD SHELL_CONTEXT "${UNINST_KEY}" "NoRepair" 1
 SectionEnd
 
-Section "uninstall" 
+# Uninstaller section.
+Section "Uninstall"
+    StrCpy $SavedLocalAppData "$LOCALAPPDATA"
+    StrCpy $SavedAppData "$APPDATA"
     !insertmacro wails.setShellContext
 
-    # Leave user data alone; the WebView2 cache moved to the user cache directory.
+    ${If} $DeleteLocalUserData == ${BST_CHECKED}
+        RMDir /r "$SavedLocalAppData\${INFO_PROJECTNAME}"
+    ${EndIf}
+
+    RMDir /r "$SavedAppData\${PRODUCT_EXECUTABLE}"
 
     RMDir /r $INSTDIR
+    ${If} ${FileExists} "$INSTDIR\${PRODUCT_EXECUTABLE}"
+        MessageBox MB_ICONEXCLAMATION "Could not delete ${PRODUCT_EXECUTABLE}. Close the app and try again."
+    ${EndIf}
+
+    !if "${WAILS_INSTALL_SCOPE}" == "machine"
+        RMDir "$PROGRAMFILES64\${INFO_COMPANYNAME}"
+    !endif
 
     Delete "$SMPROGRAMS\${INFO_PRODUCTNAME}.lnk"
     Delete "$DESKTOP\${INFO_PRODUCTNAME}.lnk"
 
     !insertmacro wails.unassociateFiles
     !insertmacro wails.unassociateCustomProtocols
-
     !insertmacro wails.deleteUninstaller
 SectionEnd
