@@ -40,7 +40,6 @@ function getThemeVars(dark: boolean): { ink: string, page: string, brand: string
 // buildThemeOverrides builds naive-ui theme overrides.
 export function buildThemeOverrides(dark: boolean): GlobalThemeOverrides {
   const { ink, page, brand } = getThemeVars(dark)
-  const surface = mix(page, brand, 0.05)
   const brandHover = mix(brand, '#ffffff', 0.12)
   const brandPressed = mix(brand, '#000000', 0.12)
 
@@ -84,7 +83,7 @@ export function buildThemeOverrides(dark: boolean): GlobalThemeOverrides {
       scrollbarBorderRadius: '4px',
       progressRailColor: hexToRgba(ink, 0.15),
       railColor: hexToRgba(ink, 0.15),
-      cardColor: surface,
+      cardColor: page,
       modalColor: mix(page, ink, 0.15),
       bodyColor: page,
       inputColor: 'transparent',
@@ -97,7 +96,6 @@ export function buildThemeOverrides(dark: boolean): GlobalThemeOverrides {
       buttonColor2Pressed: hexToRgba(ink, 0.15),
     },
     Layout: {
-      siderColor: page,
       siderToggleButtonBorder: '1px solid transparent',
       siderToggleButtonColor: hexToRgba(brand, 0.1),
       siderToggleButtonIconColor: hexToRgba(brand, 0.6),
