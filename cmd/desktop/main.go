@@ -8,6 +8,7 @@ import (
 	"github.com/Wexyuan/kairos"
 	"github.com/Wexyuan/kairos/cmd/desktop/wire"
 	appconfig "github.com/Wexyuan/kairos/internal/config"
+	"github.com/Wexyuan/kairos/internal/constant"
 	"github.com/Wexyuan/kairos/internal/module/desktop"
 	"github.com/Wexyuan/kairos/pkg/config"
 	"github.com/Wexyuan/kairos/pkg/database"
@@ -80,7 +81,7 @@ func main() {
 
 	// 7. Create the main window.
 	win := app.Window.NewWithOptions(application.WebviewWindowOptions{
-		Name:             "main",
+		Name:             constant.MainWindow,
 		Title:            cfg.App.Name,
 		Width:            1440,
 		Height:           900,
