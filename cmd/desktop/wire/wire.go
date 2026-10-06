@@ -11,6 +11,7 @@ import (
 	"github.com/Wexyuan/kairos/internal/config"
 	"github.com/Wexyuan/kairos/internal/module/base"
 	"github.com/Wexyuan/kairos/internal/module/desktop"
+	"github.com/Wexyuan/kairos/internal/module/notes"
 )
 
 // InfraProviderSet defines the infrastructure providers.
@@ -25,6 +26,7 @@ var InfraProviderSet = wire.NewSet(
 var ModuleProviderSet = wire.NewSet(
 	base.NewRepository,
 	desktop.NewWindowService,
+	notes.NewNotesService,
 )
 
 // NewApp creates a new application.
@@ -32,6 +34,7 @@ func NewApp(
 	cfg *config.Config,
 	webviewDataPath string,
 	winSvc *desktop.WindowService,
+	notesSvc *notes.NotesService,
 ) *application.App {
 	return application.New(
 		application.Options{
@@ -41,6 +44,7 @@ func NewApp(
 			},
 			Services: []application.Service{
 				application.NewService(winSvc),
+				application.NewService(notesSvc),
 			},
 			Assets: application.AssetOptions{
 				Handler: application.AssetFileServerFS(kairos.Assets),

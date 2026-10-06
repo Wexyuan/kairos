@@ -11,6 +11,7 @@ import (
 	"github.com/Wexyuan/kairos/internal/config"
 	"github.com/Wexyuan/kairos/internal/module/base"
 	"github.com/Wexyuan/kairos/internal/module/desktop"
+	"github.com/Wexyuan/kairos/internal/module/notes"
 	"github.com/google/wire"
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
@@ -24,7 +25,8 @@ func NewWireApp(cfg *config.Config) (*application.App, error) {
 		return nil, err
 	}
 	windowService := desktop.NewWindowService()
-	app := NewApp(cfg, string2, windowService)
+	notesService := notes.NewNotesService()
+	app := NewApp(cfg, string2, windowService, notesService)
 	return app, nil
 }
 
@@ -39,20 +41,21 @@ var InfraProviderSet = wire.NewSet(
 )
 
 // ModuleProviderSet defines the business module providers.
-var ModuleProviderSet = wire.NewSet(base.NewRepository, desktop.NewWindowService)
+var ModuleProviderSet = wire.NewSet(base.NewRepository, desktop.NewWindowService, notes.NewNotesService)
 
 // NewApp creates a new application.
 func NewApp(
 	cfg *config.Config,
 	webviewDataPath string,
 	winSvc *desktop.WindowService,
+	notesSvc *notes.NotesService,
 ) *application.App {
 	return application.New(application.Options{
 		Name: cfg.App.Name,
 		Windows: application.WindowsOptions{
 			WebviewUserDataPath: webviewDataPath,
 		},
-		Services: []application.Service{application.NewService(winSvc)},
+		Services: []application.Service{application.NewService(winSvc), application.NewService(notesSvc)},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(kairos.Assets),
 		},
