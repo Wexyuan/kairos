@@ -15,7 +15,13 @@ export function setupRouter(): Router {
     routes: [
       {
         path: '/',
-        redirect: '/settings',
+        redirect: '/notes',
+      },
+      {
+        path: '/notes',
+        name: 'notes',
+        component: () => import('@/pages/notes/index.vue'),
+        meta: { title: '笔记', icon: 'i-mdi-notebook-outline' },
       },
       {
         path: '/settings',

@@ -24,6 +24,8 @@ declare module 'vue' {
     NMenu: typeof import('naive-ui')['NMenu']
     NMessageProvider: typeof import('naive-ui')['NMessageProvider']
     NNotificationProvider: typeof import('naive-ui')['NNotificationProvider']
+    NoteEditor: typeof import('./components/notes/note-editor.vue')['default']
+    NoteTree: typeof import('./components/notes/note-tree.vue')['default']
     NRadioButton: typeof import('naive-ui')['NRadioButton']
     NRadioGroup: typeof import('naive-ui')['NRadioGroup']
     NScrollbar: typeof import('naive-ui')['NScrollbar']
