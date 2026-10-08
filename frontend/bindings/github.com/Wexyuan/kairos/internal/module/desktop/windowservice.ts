@@ -15,7 +15,7 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 import * as $models from "./models.js";
 
 /**
- * SetTheme sets the theme of the main window.
+ * SetTheme sets the theme of all windows.
  */
 export function SetTheme(req: $models.SetThemeReq | null): $CancellablePromise<void> {
     return $Call.ByID(4153618025, req);
