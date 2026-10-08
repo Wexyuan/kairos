@@ -18,12 +18,12 @@ const themeValue = computed({
 </script>
 
 <template>
-  <div class="mx-auto pa-4 max-w-3xl">
+  <div class="mx-auto pa-3 max-w-3xl">
     <h3 class="title-sm text-ink/60 p-2">
       外观
     </h3>
 
-    <n-card size="small">
+    <n-card size="small" :bordered="false">
       <template #header>
         <div class="title-sm">
           主题
