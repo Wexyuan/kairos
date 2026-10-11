@@ -84,7 +84,7 @@ export function buildThemeOverrides(dark: boolean): GlobalThemeOverrides {
       progressRailColor: hexToRgba(ink, 0.15),
       railColor: hexToRgba(ink, 0.15),
       cardColor: page,
-      modalColor: mix(page, ink, 0.15),
+      modalColor: page,
       bodyColor: page,
       inputColor: 'transparent',
       actionColor: hexToRgba(ink, 0.1),
@@ -101,7 +101,6 @@ export function buildThemeOverrides(dark: boolean): GlobalThemeOverrides {
       siderToggleButtonIconColor: hexToRgba(brand, 0.6),
     },
     Menu: {
-      itemColorHover: hexToRgba(brand, 0.1),
       itemHeight: '36px',
     },
     Radio: {
