@@ -5,6 +5,8 @@ import App from './App.vue'
 import 'virtual:uno.css'
 import './styles/theme.css'
 
+document.addEventListener('contextmenu', event => event.preventDefault())
+
 async function setupApp() {
   const app = createApp(App)
 

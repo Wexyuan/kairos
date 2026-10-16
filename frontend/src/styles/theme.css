@@ -18,6 +18,7 @@ html.dark,
 
 html {
   background: var(--app-page);
+  --default-contextmenu: hide;
 }
 
 ::selection {
