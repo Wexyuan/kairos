@@ -68,6 +68,7 @@ function overrideNodeClick({ option }: { option: TreeOption }): TreeOverrideNode
 function nodeProps({ option }: { option: TreeOption }) {
   return {
     'data-path': String(option.key),
+    'title': String(option.label),
     'onContextmenu': (e: MouseEvent) => {
       e.preventDefault()
       e.stopPropagation()
@@ -221,6 +222,7 @@ function getDefaultNoteName(dir: string): string {
           :override-default-node-click-behavior="overrideNodeClick"
           :node-props="nodeProps"
           :selected-keys="selectedKeys"
+          :cancelable="false"
           @update:selected-keys="handleNoteNodeSelect"
         />
       </n-scrollbar>
