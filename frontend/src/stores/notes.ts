@@ -73,6 +73,16 @@ export const useNotesStore = defineStore('notes', () => {
     activePath.value = path
   }
 
+  // saveNote saves the markdown content of a note.
+  async function saveNote(path: string, content: string): Promise<void> {
+    await NotesService.SaveNote({ root: root.value, path, content })
+  }
+
+  // readNote reads the markdown content of a note.
+  async function readNote(path: string): Promise<string> {
+    return await NotesService.ReadNote({ root: root.value, path })
+  }
+
   // renameNote renames a note or directory.
   async function renameNote(oldPath: string, newPath: string): Promise<void> {
     await NotesService.RenameNote({ root: root.value, old_path: oldPath, new_path: newPath })
@@ -99,6 +109,8 @@ export const useNotesStore = defineStore('notes', () => {
     selectWorkspace,
     listTree,
     createNote,
+    saveNote,
+    readNote,
     renameNote,
     deleteNote,
   }
