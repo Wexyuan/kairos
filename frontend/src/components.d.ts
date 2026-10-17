@@ -13,9 +13,12 @@ declare module 'vue' {
   export interface GlobalComponents {
     AppLayout: typeof import('./components/layout/app-layout.vue')['default']
     AppSidebar: typeof import('./components/layout/app-sidebar.vue')['default']
+    NButton: typeof import('naive-ui')['NButton']
     NCard: typeof import('naive-ui')['NCard']
     NConfigProvider: typeof import('naive-ui')['NConfigProvider']
     NDialogProvider: typeof import('naive-ui')['NDialogProvider']
+    NDropdown: typeof import('naive-ui')['NDropdown']
+    NEmpty: typeof import('naive-ui')['NEmpty']
     NGlobalStyle: typeof import('naive-ui')['NGlobalStyle']
     NLayout: typeof import('naive-ui')['NLayout']
     NLayoutContent: typeof import('naive-ui')['NLayoutContent']
@@ -29,6 +32,8 @@ declare module 'vue' {
     NRadioButton: typeof import('naive-ui')['NRadioButton']
     NRadioGroup: typeof import('naive-ui')['NRadioGroup']
     NScrollbar: typeof import('naive-ui')['NScrollbar']
+    NSpin: typeof import('naive-ui')['NSpin']
+    NTree: typeof import('naive-ui')['NTree']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
   }
