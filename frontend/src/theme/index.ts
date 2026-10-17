@@ -102,6 +102,7 @@ export function buildThemeOverrides(dark: boolean): GlobalThemeOverrides {
     },
     Menu: {
       itemHeight: '36px',
+      itemIconColor: hexToRgba(ink, 0.8),
     },
     Radio: {
       buttonColor: 'transparent',

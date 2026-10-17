@@ -58,7 +58,7 @@ function toTreeOptions(nodes: NoteNode[]): TreeOption[] {
 function renderPrefix({ option, selected }: { option: TreeOption, selected: boolean }): VNodeChild {
   const expanded = expandedKeys.value.includes(String(option.key))
   const cls = option.isLeaf ? 'i-mdi-file-document-outline' : expanded ? 'i-mdi-folder-open-outline' : 'i-mdi-folder-outline'
-  return h('span', { class: [cls, 'h-4 w-4', selected ? 'text-brand' : 'text-ink'] })
+  return h('span', { class: [cls, 'h-4 w-4', selected ? 'text-brand' : 'text-ink/80'] })
 }
 
 function overrideNodeClick({ option }: { option: TreeOption }): TreeOverrideNodeClickBehaviorReturn {
@@ -238,3 +238,9 @@ function getDefaultNoteName(dir: string): string {
     />
   </div>
 </template>
+
+<style scoped>
+:deep(.n-tree-node--selected .n-tree-node-content__text) {
+  color: var(--app-brand);
+}
+</style>
