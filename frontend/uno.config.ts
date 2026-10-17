@@ -45,6 +45,7 @@ export default defineConfig({
     'title-sm': 'text-sm font-medium text-ink',
     'text-body': 'text-base text-ink/60',
     'text-caption': 'text-sm text-ink/45',
+    'icon-btn': '!p-0 !h-7 !w-7',
   },
   preflights: [
     {
