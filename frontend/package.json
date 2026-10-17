@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@milkdown/crepe": "^7.22.2",
+    "@milkdown/kit": "7.22.2",
     "@vueuse/core": "^15.0.0",
     "@wailsio/runtime": "^3.0.0-beta.26",
     "naive-ui": "^2.45.3",

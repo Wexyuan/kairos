@@ -11,6 +11,9 @@ importers:
       '@milkdown/crepe':
         specifier: ^7.22.2
         version: 7.22.2(prosemirror-model@1.25.12)(prosemirror-state@1.4.4)(prosemirror-view@1.42.6)(typescript@6.0.3)
+      '@milkdown/kit':
+        specifier: 7.22.2
+        version: 7.22.2(@codemirror/language@6.12.4)(@codemirror/state@6.7.6)(@codemirror/view@6.43.13)(typescript@6.0.3)
       '@vueuse/core':
         specifier: ^15.0.0
         version: 15.0.0(vue@3.5.43(typescript@6.0.3))
@@ -6084,7 +6087,7 @@ snapshots:
       '@types/mdast': 4.0.4
       mdast-util-from-markdown: 2.0.3
       micromark-util-types: 2.0.3
-      unified: 11.0.3
+      unified: 11.0.0
     transitivePeerDependencies:
       - supports-color
 
@@ -6092,14 +6095,14 @@ snapshots:
     dependencies:
       '@types/mdast': 4.0.4
       mdast-util-to-markdown: 2.2.0
-      unified: 11.0.3
+      unified: 11.0.0
 
   remark@15.0.1:
     dependencies:
       '@types/mdast': 4.0.4
       remark-parse: 11.0.0
       remark-stringify: 11.0.0
-      unified: 11.0.3
+      unified: 11.0.0
     transitivePeerDependencies:
       - supports-color
 
