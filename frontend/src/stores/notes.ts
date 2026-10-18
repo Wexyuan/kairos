@@ -16,7 +16,7 @@ export const useNotesStore = defineStore('notes', () => {
   const root = useLocalStorage('kairos-notes-workspace', '')
   const tree = ref<NoteNode[]>([])
   const activePath = ref('')
-  const loading = ref(false)
+  const treeLoading = ref(false)
 
   let editorFlush: (() => Promise<boolean>) | null = null
 
@@ -65,12 +65,12 @@ export const useNotesStore = defineStore('notes', () => {
   async function listTree(): Promise<void> {
     if (!root.value)
       return
-    loading.value = true
+    treeLoading.value = true
     try {
       tree.value = toNoteNodes(await NotesService.ListTree(root.value))
     }
     finally {
-      loading.value = false
+      treeLoading.value = false
     }
   }
 
@@ -122,7 +122,7 @@ export const useNotesStore = defineStore('notes', () => {
     root,
     tree,
     activePath,
-    loading,
+    treeLoading,
     workspaceName,
     registerEditorFlush,
     findNode,

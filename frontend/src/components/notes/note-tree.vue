@@ -177,7 +177,7 @@ function getDefaultNoteName(dir: string): string {
       <div class="title-sm flex-1 min-w-0 truncate" :title="store.root || '选择工作区开始记录叭 (^v^)'">
         {{ store.workspaceName || '未选择工作区' }}
       </div>
-      <n-spin v-if="store.loading" :size="14" class="shrink-0" />
+      <n-spin v-if="store.treeLoading" :size="14" class="shrink-0" />
       <n-button quaternary size="small" class="icon-btn" title="选择工作区" @click="selectWorkspace">
         <template #icon>
           <span class="i-mdi-folder-search-outline h-4 w-4" />
@@ -201,7 +201,7 @@ function getDefaultNoteName(dir: string): string {
     </div>
 
     <div v-else-if="!store.tree.length" class="flex-center flex-1">
-      <n-spin v-if="store.loading" :size="24" />
+      <n-spin v-if="store.treeLoading" :size="24" />
       <n-empty v-else description="暂无笔记，快去新建叭 (^v^)">
         <template #extra>
           <n-button size="small" type="primary" @click="openCreateNoteDialog('')">
