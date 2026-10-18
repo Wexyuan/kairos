@@ -18,6 +18,8 @@ export const useNotesStore = defineStore('notes', () => {
   const activePath = ref('')
   const loading = ref(false)
 
+  let editorFlush: (() => Promise<boolean>) | null = null
+
   // workspaceName returns the name of the workspace path.
   const workspaceName = computed(() => {
     const parts = root.value.split(/[\\/]/).filter(Boolean)
@@ -37,6 +39,11 @@ export const useNotesStore = defineStore('notes', () => {
     return index
   })
 
+  // registerEditorFlush registers a editor flush hook.
+  function registerEditorFlush(flush: (() => Promise<boolean>) | null): void {
+    editorFlush = flush
+  }
+
   // findNode returns the note node for a given path or null if not found.
   function findNode(path: string): NoteNode | null {
     return nodeIndex.value.get(path) ?? null
@@ -47,6 +54,7 @@ export const useNotesStore = defineStore('notes', () => {
     const picked = await NotesService.SelectWorkspace()
     if (!picked)
       return false
+    await flushEditor()
     root.value = picked
     activePath.value = ''
     await listTree()
@@ -85,6 +93,7 @@ export const useNotesStore = defineStore('notes', () => {
 
   // renameNote renames a note or directory.
   async function renameNote(oldPath: string, newPath: string): Promise<void> {
+    await flushEditor()
     await NotesService.RenameNote({ root: root.value, old_path: oldPath, new_path: newPath })
     await listTree()
     if (isInside(activePath.value, oldPath))
@@ -93,10 +102,20 @@ export const useNotesStore = defineStore('notes', () => {
 
   // deleteNote deletes a note or directory.
   async function deleteNote(path: string): Promise<void> {
+    await flushEditor()
     await NotesService.DeleteNote({ root: root.value, path })
     await listTree()
     if (isInside(activePath.value, path))
       activePath.value = ''
+  }
+
+  // flushEditor flushes the editor.
+  async function flushEditor(): Promise<void> {
+    if (!editorFlush)
+      return
+    const saved = await editorFlush()
+    if (!saved)
+      throw new Error('存在未保存的修改')
   }
 
   return {
@@ -105,6 +124,7 @@ export const useNotesStore = defineStore('notes', () => {
     activePath,
     loading,
     workspaceName,
+    registerEditorFlush,
     findNode,
     selectWorkspace,
     listTree,
