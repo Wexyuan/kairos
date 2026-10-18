@@ -57,6 +57,7 @@ export default defineConfig({
       include: [
         /\.(vue|svelte|[jt]sx|mdx?|astro|elm|php|phoenix|html|ts|js)($|\?)/,
       ],
+      exclude: [/node_modules/],
     },
   },
 })
