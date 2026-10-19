@@ -34,7 +34,7 @@ function handleMenuSelect(key: string): void {
     v-model:collapsed="collapsed"
     collapse-mode="width"
     :collapsed-width="64"
-    :width="220"
+    :width="240"
     show-trigger
   >
     <div class="flex flex-col h-full">
