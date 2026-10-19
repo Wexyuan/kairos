@@ -19,6 +19,9 @@ html.dark,
 html {
   background: var(--app-page);
   --default-contextmenu: hide;
+  --app-font-sans: system-ui, 'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;
+  --app-font-serif: Georgia, 'Songti SC', 'Noto Serif CJK SC', SimSun, serif;
+  --app-font-mono: ui-monospace, 'SFMono-Regular', Menlo, Consolas, 'Liberation Mono', monospace;
 }
 
 ::selection {
