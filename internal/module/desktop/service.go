@@ -18,9 +18,9 @@ func NewWindowService() *WindowService {
 
 // SetTheme sets the theme of all windows.
 func (s *WindowService) SetTheme(ctx context.Context, req *SetThemeReq) error {
-	bg, text := uint32(0x00F5F5F5), uint32(0x001A1A1A)
+	bg, text := w32.RGB(0xFF, 0xFF, 0xFF), w32.RGB(0x18, 0x22, 0x33)
 	if req.Dark {
-		bg, text = uint32(0x00101010), uint32(0x00E5E5E5)
+		bg, text = w32.RGB(0x1A, 0x22, 0x2B), w32.RGB(0xE8, 0xEE, 0xF8)
 	}
 
 	application.InvokeAsync(func() {
