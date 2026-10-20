@@ -88,7 +88,11 @@ func main() {
 		MinWidth:         1280,
 		MinHeight:        800,
 		BackgroundColour: application.NewRGB(255, 255, 255),
-		URL:              "/",
+		Frameless:        true,
+		Windows: application.WindowsWindow{
+			WebView2CompositionHosting: true,
+		},
+		URL: "/",
 	})
 
 	// 8. Run the system tray.

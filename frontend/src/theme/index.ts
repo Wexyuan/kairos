@@ -96,6 +96,7 @@ export function buildThemeOverrides(dark: boolean): GlobalThemeOverrides {
       buttonColor2Pressed: hexToRgba(ink, 0.15),
     },
     Layout: {
+      siderBorderColor: hexToRgba(ink, 0.05),
       siderToggleButtonBorder: '1px solid transparent',
       siderToggleButtonColor: hexToRgba(brand, 0.1),
       siderToggleButtonIconColor: hexToRgba(brand, 0.6),

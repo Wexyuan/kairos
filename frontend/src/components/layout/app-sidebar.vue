@@ -2,10 +2,13 @@
 import type { MenuOption } from 'naive-ui'
 import { h } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useAppStore } from '@/stores/app'
 
 const route = useRoute()
 const router = useRouter()
-const collapsed = ref(false)
+
+const appStore = useAppStore()
+const collapsed = computed(() => appStore.sidebarCollapsed)
 
 function buildMenuOptions(): MenuOption[] {
   return router
@@ -31,14 +34,14 @@ function handleMenuSelect(key: string): void {
 
 <template>
   <n-layout-sider
-    v-model:collapsed="collapsed"
+    bordered
+    :collapsed="collapsed"
     collapse-mode="width"
     :collapsed-width="64"
     :width="240"
-    show-trigger
   >
     <div class="flex flex-col h-full">
-      <RouterLink to="/" class="p-4 flex shrink-0 gap-3 cursor-pointer items-center overflow-hidden">
+      <RouterLink to="/" class="p-4 border-b border-ink/5 flex shrink-0 gap-3 cursor-pointer items-center overflow-hidden">
         <img src="/logo.svg" alt="kairos" class="shrink-0 h-8 w-8">
         <img src="/title.svg" alt="" class="shrink-0 h-6 transition-opacity duration-300" :class="collapsed ? 'opacity-0' : 'opacity-100'">
       </RouterLink>
@@ -48,7 +51,7 @@ function handleMenuSelect(key: string): void {
         :indent="20"
         :options="menuOptions"
         :value="activeKey"
-        class="flex-1"
+        class="py-4 flex-1"
         @update:value="handleMenuSelect"
       />
     </div>
@@ -56,6 +59,10 @@ function handleMenuSelect(key: string): void {
 </template>
 
 <style scoped>
+:deep(.n-menu .n-menu-item:first-child) {
+  margin-top: 0;
+}
+
 :deep(.n-menu .n-menu-item-content::before) {
   left: 14px;
   right: 14px;
