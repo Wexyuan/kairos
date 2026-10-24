@@ -35,6 +35,11 @@ export default defineConfig({
       brand: 'var(--app-brand)',
       surface: 'var(--app-surface)',
     },
+    shadow: {
+      1: '0 2px 8px rgba(24,34,46,.06)',
+      2: '0 8px 24px rgba(24,34,46,.08)',
+      3: '0 16px 40px rgba(24,34,46,.12)',
+    },
   },
   shortcuts: {
     'wh-full': 'w-full h-full',
@@ -46,6 +51,7 @@ export default defineConfig({
     'text-body': 'text-base text-ink/60',
     'text-caption': 'text-sm text-ink/45',
     'icon-btn': '!p-0 !h-7 !w-7',
+    'panel': 'bg-page rounded-2xl shadow-1 overflow-hidden',
   },
   preflights: [
     {
