@@ -15,8 +15,8 @@ type PageQuery struct {
 	PageSize int `json:"page_size"` // page size
 }
 
-// clamp clips the page number and page size to the allowed range.
-func (q PageQuery) clamp() PageQuery {
+// Clamp clips the page number and page size to the allowed range.
+func (q PageQuery) Clamp() PageQuery {
 	if q.Page < defaultPage {
 		q.Page = defaultPage
 	}
