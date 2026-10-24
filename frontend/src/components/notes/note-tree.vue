@@ -10,7 +10,9 @@ const store = useNotesStore()
 const { runAction, confirmAction, inputAction } = useAction()
 
 const treeContainerRef = ref<HTMLElement | null>(null)
-const treeOptions = computed<TreeOption[]>(() => toTreeOptions(store.tree))
+const searchText = ref('')
+const filteredTree = computed(() => filterNotes(store.tree, searchText.value.trim().toLowerCase()))
+const treeOptions = computed<TreeOption[]>(() => toTreeOptions(filteredTree.value))
 const selectedKeys = computed(() => (store.activePath ? [store.activePath] : []))
 const expandedKeys = ref<Array<string | number>>([])
 const contextMenu = ref({ show: false, x: 0, y: 0, path: '' })
@@ -25,6 +27,12 @@ onMounted(() => runAction('加载笔记', () => store.listTree()))
 watch(() => store.activePath, (path) => {
   if (path)
     expandAncestors(path)
+})
+
+watch(searchText, (value) => {
+  if (!value.trim())
+    return
+  expandedKeys.value = [...new Set([...expandedKeys.value, ...collectDirKeys(filteredTree.value)])]
 })
 
 async function selectWorkspace(): Promise<void> {
@@ -58,7 +66,7 @@ function toTreeOptions(nodes: NoteNode[]): TreeOption[] {
 function renderPrefix({ option, selected }: { option: TreeOption, selected: boolean }): VNodeChild {
   const expanded = expandedKeys.value.includes(String(option.key))
   const cls = option.isLeaf ? 'i-mdi-file-document-outline' : expanded ? 'i-mdi-folder-open-outline' : 'i-mdi-folder-outline'
-  return h('span', { class: [cls, 'h-4 w-4', selected ? 'text-brand' : 'text-ink/80'] })
+  return h('span', { class: [cls, 'h-4 w-4', selected ? 'text-brand' : 'text-ink/60'] })
 }
 
 function overrideNodeClick({ option }: { option: TreeOption }): TreeOverrideNodeClickBehaviorReturn {
@@ -79,6 +87,35 @@ function nodeProps({ option }: { option: TreeOption }) {
 
 function openContextMenu(event: MouseEvent, path: string): void {
   contextMenu.value = { show: true, x: event.clientX, y: event.clientY, path }
+}
+
+function filterNotes(nodes: NoteNode[], keyword: string): NoteNode[] {
+  if (!keyword)
+    return nodes
+  const result: NoteNode[] = []
+  for (const node of nodes) {
+    const name = basename(node.path).toLowerCase()
+    if (node.is_dir) {
+      const children = filterNotes(toNoteNodes(node.children), keyword)
+      if (name.includes(keyword) || children.length)
+        result.push({ ...node, children })
+    }
+    else if (name.includes(keyword)) {
+      result.push(node)
+    }
+  }
+  return result
+}
+
+function collectDirKeys(nodes: NoteNode[]): string[] {
+  const keys: string[] = []
+  for (const node of nodes) {
+    if (!node.is_dir)
+      continue
+    keys.push(node.path)
+    keys.push(...collectDirKeys(toNoteNodes(node.children)))
+  }
+  return keys
 }
 
 function handleNoteNodeSelect(keys: Array<string | number>): void {
@@ -111,6 +148,10 @@ function handleContextMenuSelect(key: string | number): void {
       openDeleteNoteDialog(path)
       break
   }
+}
+
+function openCreateNoteDialogInCurFolder(): void {
+  openCreateNoteDialog(store.activePath ? dirname(store.activePath) : '')
 }
 
 function openCreateNoteDialog(dir: string): void {
@@ -167,23 +208,30 @@ function getDefaultNoteName(dir: string): string {
 </script>
 
 <template>
-  <div class="pa-2 rounded-xl bg-page flex flex-col gap-2 h-full overflow-hidden">
-    <div class="flex shrink-0 gap-2 items-center">
-      <n-button quaternary size="small" class="icon-btn shrink-0" :class="{ '!bg-brand/10 !text-brand': store.root }">
+  <div class="panel flex flex-col h-full">
+    <div class="px-3 py-2.5 border-b border-ink/5 flex gap-2 items-center">
+      <n-button quaternary size="small" class="flex-1 min-w-0 justify-start" :title="store.root || '选择工作区'" @click="selectWorkspace">
         <template #icon>
-          <span class="i-mdi-folder-outline h-4 w-4" />
+          <span class="i-mdi-folder-outline h-4 w-4" :class="store.root ? 'text-brand' : 'text-ink/40'" />
         </template>
+        <span class="title-sm min-w-0 truncate">{{ store.workspaceName || '未选择工作区' }}</span>
       </n-button>
-      <div class="title-sm flex-1 min-w-0 truncate" :title="store.root || '选择工作区开始记录叭 (^v^)'">
-        {{ store.workspaceName || '未选择工作区' }}
-      </div>
-      <n-spin v-if="store.treeLoading" :size="14" class="shrink-0" />
-      <n-button quaternary size="small" class="icon-btn" title="选择工作区" @click="selectWorkspace">
+      <n-spin v-if="store.treeLoading" :size="12" class="shrink-0" />
+      <n-button type="primary" size="small" class="shrink-0" :disabled="!store.root" title="新建笔记" @click="openCreateNoteDialogInCurFolder">
         <template #icon>
-          <span class="i-mdi-folder-search-outline h-4 w-4" />
+          <span class="i-mdi-plus h-4 w-4" />
         </template>
+        新建
       </n-button>
-      <n-button quaternary size="small" class="icon-btn" title="定位当前笔记" :disabled="!store.activePath" @click="locateActiveNote">
+    </div>
+
+    <div v-if="store.root" class="px-3 py-2.5 border-b border-ink/5 flex gap-2 items-center">
+      <n-input v-model:value="searchText" size="small" clearable placeholder="搜索笔记…" class="flex-1 min-w-0">
+        <template #prefix>
+          <span class="i-mdi-magnify text-ink/40 h-4 w-4" />
+        </template>
+      </n-input>
+      <n-button quaternary size="small" class="shrink-0" title="定位当前笔记" :disabled="!store.activePath" @click="locateActiveNote">
         <template #icon>
           <span class="i-mdi-crosshairs-gps h-4 w-4" />
         </template>
@@ -202,7 +250,7 @@ function getDefaultNoteName(dir: string): string {
 
     <div v-else-if="!store.tree.length" class="flex-center flex-1">
       <n-spin v-if="store.treeLoading" :size="24" />
-      <n-empty v-else description="暂无笔记，快去新建叭 (^v^)">
+      <n-empty v-else description="暂无笔记，先新建一篇叭 (^v^)">
         <template #extra>
           <n-button size="small" type="primary" @click="openCreateNoteDialog('')">
             新建笔记
@@ -211,18 +259,24 @@ function getDefaultNoteName(dir: string): string {
       </n-empty>
     </div>
 
-    <div v-else ref="treeContainerRef" class="flex flex-1 flex-col min-h-0">
-      <n-scrollbar class="flex-1">
+    <div v-else ref="treeContainerRef" class="flex-1 min-h-0">
+      <n-scrollbar class="h-full">
+        <div v-if="!treeOptions.length" class="title-sm text-ink/40 py-10 text-center">
+          没有匹配的笔记
+        </div>
         <n-tree
+          v-else
           v-model:expanded-keys="expandedKeys"
           block-line
           ellipsis
           :data="treeOptions"
+          :indent="14"
           :render-prefix="renderPrefix"
           :override-default-node-click-behavior="overrideNodeClick"
           :node-props="nodeProps"
           :selected-keys="selectedKeys"
           :cancelable="false"
+          class="px-3 py-2.5"
           @update:selected-keys="handleNoteNodeSelect"
         />
       </n-scrollbar>
@@ -242,6 +296,22 @@ function getDefaultNoteName(dir: string): string {
 </template>
 
 <style scoped>
+:deep(.n-input__prefix) {
+  margin-right: 6px;
+}
+
+:deep(.n-tree-node--selected)::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 3px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--app-brand);
+  transform: translateY(-50%);
+}
+
 :deep(.n-tree-node--selected .n-tree-node-content__text) {
   color: var(--app-brand);
 }
