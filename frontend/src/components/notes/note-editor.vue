@@ -17,6 +17,7 @@ const editorRef = ref<HTMLElement | null>(null)
 const loading = ref(false)
 const saving = ref(false)
 const dirty = ref(false)
+const wordCount = ref(0)
 
 let crepe: Crepe | null = null // editor instance
 let editorReady: Promise<Crepe> | null = null // guards against concurrent creation
@@ -25,6 +26,27 @@ let currentMarkdown = '' // current markdown content
 let replacing = false // whether the editor is replacing existing content
 let saveTimer: ReturnType<typeof setTimeout> | undefined // autosave timer
 let saveTask: Promise<boolean> | null = null // in-flight save task
+
+const noteTitle = computed(() => {
+  const name = basename(store.activePath)
+  return name ? name.replace(/\.md$/i, '') : '未选择笔记'
+})
+
+const saveStatus = computed(() => {
+  if (loading.value)
+    return '加载中'
+  if (saving.value)
+    return '保存中'
+  return dirty.value ? '未保存' : '已保存'
+})
+
+const statusTextClass = computed(() => (loading.value || saving.value || dirty.value ? 'text-[#aa6622]' : 'text-ink/45'))
+
+const statusDotClass = computed(() => {
+  if (loading.value || saving.value)
+    return 'bg-[#aa6622] animate-pulse'
+  return dirty.value ? 'bg-[#aa6622]' : 'bg-[#227755]'
+})
 
 onMounted(() => {
   store.registerEditorFlush(flushEditor)
@@ -54,6 +76,10 @@ function handleKeydown(e: KeyboardEvent): void {
   }
 }
 
+async function selectWorkspace(): Promise<void> {
+  await runAction('加载笔记', () => store.selectWorkspace())
+}
+
 async function createEditor(): Promise<Crepe> {
   const root = editorRef.value
   if (!root)
@@ -61,8 +87,22 @@ async function createEditor(): Promise<Crepe> {
   const instance = new Crepe({
     root,
     defaultValue: '',
+    features: {
+      [Crepe.Feature.TopBar]: true,
+    },
     featureConfigs: {
-      [Crepe.Feature.Placeholder]: { text: '开始记录叭 (^v^)', mode: 'doc' },
+      [Crepe.Feature.TopBar]: {
+        headingOptions: [
+          { label: '正文', level: null },
+          { label: '标题 1', level: 1 },
+          { label: '标题 2', level: 2 },
+          { label: '标题 3', level: 3 },
+          { label: '标题 4', level: 4 },
+          { label: '标题 5', level: 5 },
+          { label: '标题 6', level: 6 },
+        ],
+      },
+      [Crepe.Feature.Placeholder]: { text: '开始书写…', mode: 'doc' },
       [Crepe.Feature.BlockEdit]: {
         textGroup: {
           label: '文本',
@@ -95,6 +135,7 @@ async function createEditor(): Promise<Crepe> {
   instance.on((api) => {
     api.markdownUpdated((_ctx, markdown) => {
       currentMarkdown = markdown
+      wordCount.value = countWords(markdown)
       if (replacing)
         return
       dirty.value = true
@@ -124,6 +165,7 @@ async function loadNote(path: string): Promise<void> {
         return
       replacing = true
       currentMarkdown = content
+      wordCount.value = countWords(content)
       instance.editor.action(replaceAll(content))
       loadedPath = path
       dirty.value = false
@@ -136,6 +178,12 @@ async function loadNote(path: string): Promise<void> {
     replacing = false
     loading.value = false
   }
+}
+
+function countWords(markdown: string): number {
+  const cjk = markdown.match(/[\u3400-\u9FFF]/g)?.length ?? 0
+  const latin = markdown.match(/[a-z0-9]+/gi)?.length ?? 0
+  return cjk + latin
 }
 
 function saveNote(): Promise<boolean> {
@@ -181,20 +229,19 @@ function ensureEditor(): Promise<Crepe> {
 </script>
 
 <template>
-  <div class="pa-2 rounded-xl bg-page flex flex-col gap-2 h-full overflow-hidden">
-    <div class="pb-2 border-b border-ink/15 flex shrink-0 gap-2 items-center">
-      <n-button quaternary size="small" class="icon-btn shrink-0">
-        <template #icon>
-          <span class="i-mdi-file-document-edit-outline h-4 w-4" />
-        </template>
-      </n-button>
-      <div class="title-sm flex-1 min-w-0 truncate" :title="store.activePath || '未选择笔记'">
-        {{ basename(store.activePath) || '未选择笔记' }}
+  <div class="panel flex flex-col h-full">
+    <div class="px-4 py-2.5 border-b border-ink/5 flex shrink-0 gap-2 items-center">
+      <span class="i-mdi-file-document-outline text-ink/45 shrink-0 h-4 w-4" />
+      <div class="flex flex-1 min-h-8 min-w-0 items-center" :title="store.activePath || noteTitle">
+        <span class="title-sm truncate">
+          {{ noteTitle }}
+        </span>
       </div>
       <template v-if="store.activePath">
-        <n-spin v-if="loading || saving" :size="14" class="shrink-0" />
-        <span v-else class="text-sm shrink-0" :class="dirty ? 'text-ink/80' : 'text-ink/45'">
-          {{ dirty ? '未保存' : '已保存' }}
+        <span class="text-xs text-ink/45 shrink-0">{{ wordCount }} 字</span>
+        <span class="text-xs flex-center shrink-0 gap-1" :class="statusTextClass">
+          <span class="rounded-full h-1.5 w-1.5" :class="statusDotClass" />
+          {{ saveStatus }}
         </span>
         <n-button quaternary size="small" class="icon-btn shrink-0" title="保存（Ctrl+S）" :disabled="!dirty" @click="flushEditor">
           <template #icon>
@@ -205,10 +252,16 @@ function ensureEditor(): Promise<Crepe> {
     </div>
 
     <div v-if="!store.root" class="flex-center flex-1">
-      <n-empty description="选择工作区开始记录叭 (^v^)" />
+      <n-empty description="选择工作区开始记录叭 (^v^)">
+        <template #extra>
+          <n-button size="small" type="primary" @click="selectWorkspace">
+            选择工作区
+          </n-button>
+        </template>
+      </n-empty>
     </div>
     <div v-else-if="!store.activePath" class="flex-center flex-1">
-      <n-empty description="选择或新建笔记开始记录叭 (^v^)" />
+      <n-empty description="选择或新建一篇笔记叭 (^v^)" />
     </div>
     <div v-show="store.activePath" class="note-body flex-1 min-h-0 overflow-y-auto">
       <div ref="editorRef" class="h-full" />
@@ -221,53 +274,180 @@ function ensureEditor(): Promise<Crepe> {
   --crepe-color-background: var(--app-page);
   --crepe-color-on-background: var(--app-ink);
   --crepe-color-surface: var(--app-surface);
-  --crepe-color-surface-low: color-mix(in srgb, var(--app-brand) 10%, var(--app-page));
+  --crepe-color-surface-low: var(--app-page);
   --crepe-color-on-surface: var(--app-ink);
   --crepe-color-on-surface-variant: color-mix(in srgb, var(--app-ink) 80%, transparent);
-  --crepe-color-outline: color-mix(in srgb, var(--app-ink) 60%, transparent);
+  --crepe-color-outline: color-mix(in srgb, var(--app-ink) 45%, transparent);
   --crepe-color-primary: var(--app-brand);
   --crepe-color-secondary: color-mix(in srgb, var(--app-brand) 15%, var(--app-page));
   --crepe-color-on-secondary: var(--app-ink);
   --crepe-color-inverse: var(--app-ink);
   --crepe-color-on-inverse: var(--app-page);
-  --crepe-color-hover: color-mix(in srgb, var(--app-ink) 10%, transparent);
+  --crepe-color-hover: color-mix(in srgb, var(--app-brand) 10%, transparent);
   --crepe-color-selected: color-mix(in srgb, var(--app-brand) 15%, transparent);
-  --crepe-color-inline-area: color-mix(in srgb, var(--app-ink) 15%, transparent);
+  --crepe-color-inline-area: color-mix(in srgb, var(--app-ink) 10%, transparent);
   --crepe-color-inline-code: color-mix(in srgb, var(--app-brand) 80%, var(--app-ink));
   --crepe-color-error: #d03050;
 
   --crepe-base-font-size: 15px;
   --crepe-font-default: var(--app-font-sans);
-  --crepe-font-title: var(--crepe-font-default);
+  --crepe-font-title: var(--app-font-sans);
   --crepe-font-code: var(--app-font-mono);
 
-  --crepe-shadow-1: 0 6px 24px -8px rgb(0 0 0 / 18%), 0 2px 6px rgb(0 0 0 / 6%);
-  --crepe-shadow-2: 0 16px 48px -12px rgb(0 0 0 / 24%), 0 6px 16px rgb(0 0 0 / 8%);
+  --crepe-shadow-1: 0 2px 8px rgb(24 34 46 / 6%), 0 0 0 1px color-mix(in srgb, var(--app-ink) 10%, transparent);
+  --crepe-shadow-2: 0 8px 24px rgb(24 34 46 / 8%), 0 0 0 1px color-mix(in srgb, var(--app-ink) 10%, transparent);
 }
 
 :deep(.milkdown .ProseMirror) {
-  max-width: 960px;
+  max-width: 800px;
   margin: 0 auto;
-  padding: 24px 88px;
+  padding: 32px 72px 56px;
+}
+
+:deep(.milkdown .milkdown-top-bar) {
+  padding: 10px 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--app-ink) 5%, transparent);
+  background: var(--app-surface);
+}
+
+:deep(.milkdown .milkdown-top-bar .top-bar-inner) {
+  justify-content: center;
+  gap: 2px;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+:deep(.milkdown .milkdown-top-bar .top-bar-heading-selector) {
+  padding: 0;
+}
+
+:deep(.milkdown .milkdown-top-bar .top-bar-item) {
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  border-radius: 8px;
+  color: color-mix(in srgb, var(--app-ink) 60%, transparent);
+}
+
+:deep(.milkdown .milkdown-top-bar .top-bar-item svg) {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+:deep(.milkdown .milkdown-top-bar .top-bar-item.active) {
+  background: color-mix(in srgb, var(--app-brand) 10%, transparent);
+}
+
+:deep(.milkdown .milkdown-top-bar .top-bar-item:hover svg) {
+  color: var(--app-brand);
+  fill: var(--app-brand);
+}
+
+:deep(.milkdown .milkdown-top-bar .top-bar-divider) {
+  height: 20px;
+  margin: 0 4px;
+  background: color-mix(in srgb, var(--app-ink) 10%, transparent);
+}
+
+:deep(.milkdown .milkdown-top-bar .top-bar-heading-button) {
+  height: 32px;
+  border-radius: 8px;
+}
+
+:deep(.milkdown .milkdown-top-bar .top-bar-heading-button .top-bar-heading-label) {
+  min-width: 48px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+:deep(.milkdown .milkdown-top-bar .top-bar-heading-dropdown) {
+  padding: 8px;
+  border-radius: 12px;
+}
+
+:deep(.milkdown .milkdown-top-bar .top-bar-heading-option) {
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+:deep(.milkdown .milkdown-toolbar) {
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border-radius: 12px;
+}
+
+:deep(.milkdown .milkdown-toolbar .divider) {
+  height: 20px;
+  margin: 0 4px;
+  background: color-mix(in srgb, var(--app-ink) 10%, transparent);
+}
+
+:deep(.milkdown .milkdown-toolbar .toolbar-item) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin: 0;
+  padding: 0;
+  border-radius: 8px;
+  color: color-mix(in srgb, var(--app-ink) 60%, transparent);
+}
+
+:deep(.milkdown .milkdown-toolbar .toolbar-item svg) {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+:deep(.milkdown .milkdown-toolbar .toolbar-item.active) {
+  background: color-mix(in srgb, var(--app-brand) 10%, transparent);
+}
+
+:deep(.milkdown .milkdown-toolbar .toolbar-item:hover svg) {
+  color: var(--app-brand);
+  fill: var(--app-brand);
+}
+
+:deep(.milkdown .milkdown-block-handle) {
+  padding: 4px 0;
+}
+
+:deep(.milkdown .milkdown-block-handle .operation-item) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border-radius: 8px;
+}
+
+:deep(.milkdown .milkdown-block-handle .operation-item svg) {
+  width: 16px;
+  height: 16px;
 }
 
 .note-body {
   scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--app-ink) 10%, transparent) transparent;
+  scrollbar-color: color-mix(in srgb, var(--app-brand) 20%, transparent) transparent;
 }
 
 .note-body::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
+  width: 6px;
+  height: 6px;
 }
 
 .note-body::-webkit-scrollbar-thumb {
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--app-ink) 10%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--app-brand) 20%, transparent);
 }
 
 .note-body::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in srgb, var(--app-ink) 15%, transparent);
+  background: color-mix(in srgb, var(--app-brand) 40%, transparent);
 }
 
 :deep(.milkdown .ProseMirror > *:first-child) {
@@ -276,7 +456,6 @@ function ensureEditor(): Promise<Crepe> {
 
 :deep(.milkdown .ProseMirror p) {
   padding: 3px 0;
-  font-size: 15px;
   line-height: 1.7;
 }
 
@@ -326,12 +505,49 @@ function ensureEditor(): Promise<Crepe> {
   margin: 12px 0 4px;
   font-size: 15px;
   line-height: 1.6;
-  color: color-mix(in srgb, var(--app-ink) 70%, transparent);
+  color: color-mix(in srgb, var(--app-ink) 60%, transparent);
 }
 
 :deep(.milkdown .ProseMirror *::selection) {
-  background: var(--app-brand);
-  color: var(--app-page);
+  background: color-mix(in srgb, var(--app-brand) 15%, transparent);
+}
+
+:deep(.milkdown .ProseMirror a) {
+  text-decoration-color: color-mix(in srgb, var(--app-brand) 40%, transparent);
+  text-underline-offset: 2px;
+}
+
+:deep(.milkdown .ProseMirror a:hover) {
+  text-decoration-color: var(--app-brand);
+}
+
+:deep(.milkdown .ProseMirror code) {
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+:deep(.milkdown .ProseMirror blockquote) {
+  margin: 8px 0;
+  padding-left: 16px;
+}
+
+:deep(.milkdown .ProseMirror blockquote::before) {
+  background: color-mix(in srgb, var(--app-brand) 40%, transparent);
+}
+
+:deep(.milkdown .ProseMirror blockquote p) {
+  color: color-mix(in srgb, var(--app-ink) 80%, transparent);
+}
+
+:deep(.milkdown .milkdown-table-block th),
+:deep(.milkdown .milkdown-table-block td) {
+  padding: 6px 14px;
+  border-color: color-mix(in srgb, var(--app-ink) 10%, transparent);
+}
+
+:deep(.milkdown .milkdown-table-block th) {
+  font-weight: 600;
+  background: color-mix(in srgb, var(--app-ink) 5%, transparent);
 }
 
 :deep(.milkdown .milkdown-list-item-block .label.checked),
@@ -355,7 +571,7 @@ function ensureEditor(): Promise<Crepe> {
 }
 
 :deep(.milkdown .milkdown-list-item-block .label.checked:hover svg) {
-  fill: color-mix(in srgb, var(--app-brand) 85%, var(--app-ink));
+  fill: color-mix(in srgb, var(--app-brand) 80%, var(--app-ink));
 }
 
 :deep(.milkdown .milkdown-list-item-block .label.unchecked svg) {
@@ -371,7 +587,6 @@ function ensureEditor(): Promise<Crepe> {
   padding: 8px 16px 16px;
   border-radius: 8px;
   background: #282c34;
-  box-shadow: 0 2px 10px rgb(0 0 0 / 12%);
 }
 
 :deep(.milkdown .milkdown-code-block .cm-editor) {
@@ -380,9 +595,9 @@ function ensureEditor(): Promise<Crepe> {
 
 :deep(.milkdown .milkdown-code-block .cm-content),
 :deep(.milkdown .milkdown-code-block .cm-gutters) {
-  background: transparent;
   font-family: var(--crepe-font-code);
   font-size: 14px;
+  background: transparent;
 }
 
 :deep(.milkdown .milkdown-code-block .cm-line) {
