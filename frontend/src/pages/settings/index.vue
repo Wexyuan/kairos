@@ -2,47 +2,51 @@
 import { useTheme } from '@/composables'
 
 const { isDark, toggleDark } = useTheme()
-
-const themeOptions = [
-  { value: 'dark', label: '深色', icon: 'i-mdi-weather-night' },
-  { value: 'light', label: '浅色', icon: 'i-mdi-weather-sunny' },
-]
-
-const themeValue = computed({
-  get: () => (isDark.value ? 'dark' : 'light'),
-  set: (value: string) => {
-    if ((value === 'dark') !== isDark.value)
-      toggleDark()
-  },
-})
 </script>
 
 <template>
-  <div class="mx-auto pa-3 max-w-3xl">
-    <h3 class="title-sm text-ink/60 p-2">
-      外观
-    </h3>
+  <div class="mx-auto p-6 gap-6 grid max-w-240 items-start md:grid-cols-2">
+    <section class="panel">
+      <div class="px-4 py-2.5 border-b border-ink/5 bg-brand/15 flex gap-2 items-center">
+        <span class="i-mdi-palette-outline text-brand h-4 w-4" />
+        <h2 class="title-md">
+          外观
+        </h2>
+      </div>
 
-    <n-card size="small" :bordered="false">
-      <template #header>
-        <div class="title-sm">
-          主题
+      <div class="px-4">
+        <div class="py-2.5 flex gap-4 items-center justify-between">
+          <div class="min-w-0">
+            <h3 class="title-sm">
+              主题
+            </h3>
+            <p class="text-ink/60 mt-1">
+              切换亮色 / 暗色主题界面
+            </p>
+          </div>
+          <n-switch size="small" class="shrink-0" :value="isDark" @update:value="toggleDark" />
         </div>
-        <div class="title-sm text-ink/60">
-          切换应用为深色或浅色主题，设置后立即生效
-        </div>
-      </template>
+      </div>
+    </section>
 
-      <template #header-extra>
-        <n-radio-group v-model:value="themeValue" size="small">
-          <n-radio-button v-for="option in themeOptions" :key="option.value" :value="option.value">
-            <span class="flex-center gap-2">
-              <span class="h-4 w-4" :class="option.icon" />
-              <span>{{ option.label }}</span>
-            </span>
-          </n-radio-button>
-        </n-radio-group>
-      </template>
-    </n-card>
+    <section class="panel">
+      <div class="px-4 py-2.5 border-b border-ink/5 bg-brand/15 flex gap-2 items-center">
+        <span class="i-mdi-information-outline text-brand h-4 w-4" />
+        <h2 class="title-md">
+          关于
+        </h2>
+      </div>
+
+      <div class="px-4">
+        <div class="py-2.5 border-b border-ink/5 flex gap-4 items-center justify-between">
+          <span class="text-ink/60">产品</span>
+          <span class="title-sm">Kairos · 个人办公工作台</span>
+        </div>
+        <div class="py-2.5 flex gap-4 items-center justify-between">
+          <span class="text-ink/60">版本</span>
+          <span class="title-sm">0.1.0</span>
+        </div>
+      </div>
+    </section>
   </div>
 </template>
