@@ -44,3 +44,38 @@ func (s *WindowService) SetTheme(ctx context.Context, req *SetThemeReq) error {
 	})
 	return nil
 }
+
+// clipboardWindow returns the clipboard window.
+func (s *WindowService) clipboardWindow() (application.Window, bool) {
+	app := application.Get()
+	if app == nil {
+		return nil, false
+	}
+	return app.Window.GetByName(constant.ClipboardWindow)
+}
+
+// ShowClipboardWindow shows the clipboard window.
+func (s *WindowService) ShowClipboardWindow(ctx context.Context) error {
+	if win, ok := s.clipboardWindow(); ok {
+		win.Show()
+		win.Focus()
+	}
+	return nil
+}
+
+// HideClipboardWindow hides the clipboard window.
+func (s *WindowService) HideClipboardWindow(ctx context.Context) error {
+	if win, ok := s.clipboardWindow(); ok {
+		win.Hide()
+	}
+	return nil
+}
+
+// ToggleClipboardWindow toggles the clipboard window.
+func (s *WindowService) ToggleClipboardWindow(ctx context.Context) error {
+	if win, ok := s.clipboardWindow(); ok && win.IsVisible() {
+		win.Hide()
+		return nil
+	}
+	return s.ShowClipboardWindow(ctx)
+}
