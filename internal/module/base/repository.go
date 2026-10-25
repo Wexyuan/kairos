@@ -3,6 +3,7 @@ package base
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"gorm.io/gorm"
 
@@ -54,4 +55,10 @@ func (r *Repository) Transaction(ctx context.Context, fn func(ctx context.Contex
 // Cache returns the shared cache.
 func (r *Repository) Cache() cache.Cache {
 	return r.c
+}
+
+// EscapeLike escapes LIKE wildcards in the keyword.
+func (r *Repository) EscapeLike(keyword string) string {
+	replacer := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+	return replacer.Replace(keyword)
 }
