@@ -6,26 +6,26 @@ import (
 	"github.com/Wexyuan/kairos/internal/module/base"
 )
 
-// CopyEntryReq is the copy clipboard entry request.
-type CopyEntryReq struct {
-	ID string `json:"id"` // entry ID
+// CopyClipboardEntryReq is the copy clipboard entry request.
+type CopyClipboardEntryReq struct {
+	ID string `json:"id"` // clipboard entry ID
 }
 
-// DeleteEntryReq is the delete clipboard entry request.
-type DeleteEntryReq struct {
-	ID string `json:"id"` // entry ID
+// DeleteClipboardEntryReq is the delete clipboard entry request.
+type DeleteClipboardEntryReq struct {
+	ID string `json:"id"` // clipboard entry ID
 }
 
 // ClipboardEntryItem is the clipboard entry item.
 type ClipboardEntryItem struct {
 	// keep the snowflake ID as string, JavaScript numbers lose precision above 2^53.
-	ID         string    `json:"id"`           // entry ID
+	ID         string    `json:"id"`           // clipboard entry ID
 	Content    string    `json:"content"`      // clipboard content
 	LastUsedAt time.Time `json:"last_used_at"` // last used time
 }
 
-// ListEntriesReq is the list clipboard entries request.
-type ListEntriesReq struct {
+// ListClipboardEntriesReq is the list clipboard entries request.
+type ListClipboardEntriesReq struct {
 	base.PageQuery
 	Keyword string `json:"keyword"` // search keyword in content
 }

@@ -12,24 +12,24 @@ import (
 
 // ClipboardRepository defines clipboard entry data operations.
 type ClipboardRepository interface {
-	// CreateEntry generates ID and creates entry in database.
-	CreateEntry(ctx context.Context, entry *ClipboardEntry) error
-	// DeleteEntry deletes entry by ID.
-	DeleteEntry(ctx context.Context, id int64) error
-	// DeleteAllEntries deletes all entries.
-	DeleteAllEntries(ctx context.Context) error
-	// DeleteOldestEntries deletes the oldest entries by last used time.
-	DeleteOldestEntries(ctx context.Context, limit int) error
-	// UpdateEntryLastUsedAt updates last used time of an entry.
-	UpdateEntryLastUsedAt(ctx context.Context, id int64) error
-	// GetEntryByID retrieves entry by ID, returns nil if not found.
-	GetEntryByID(ctx context.Context, id int64) (*ClipboardEntry, error)
-	// GetEntryByHash retrieves entry by content hash, returns nil if not found.
-	GetEntryByHash(ctx context.Context, hash string) (*ClipboardEntry, error)
-	// CountEntries returns the total number of entries.
-	CountEntries(ctx context.Context) (int64, error)
-	// ListEntries retrieves entries with keyword filter and pagination.
-	ListEntries(ctx context.Context, keyword string, page, pageSize int) ([]*ClipboardEntry, int64, error)
+	// CreateClipboardEntry generates ID and creates clipboard entry in database.
+	CreateClipboardEntry(ctx context.Context, entry *ClipboardEntry) error
+	// DeleteClipboardEntry deletes clipboard entry by ID.
+	DeleteClipboardEntry(ctx context.Context, id int64) error
+	// DeleteAllClipboardEntries deletes all clipboard entries.
+	DeleteAllClipboardEntries(ctx context.Context) error
+	// DeleteOldestClipboardEntries deletes the oldest clipboard entries by last used time.
+	DeleteOldestClipboardEntries(ctx context.Context, limit int) error
+	// UpdateClipboardEntryLastUsedAt updates last used time of a clipboard entry.
+	UpdateClipboardEntryLastUsedAt(ctx context.Context, id int64) error
+	// GetClipboardEntryByID retrieves clipboard entry by ID, returns nil if not found.
+	GetClipboardEntryByID(ctx context.Context, id int64) (*ClipboardEntry, error)
+	// GetClipboardEntryByHash retrieves clipboard entry by content hash, returns nil if not found.
+	GetClipboardEntryByHash(ctx context.Context, hash string) (*ClipboardEntry, error)
+	// CountClipboardEntries counts clipboard entries.
+	CountClipboardEntries(ctx context.Context) (int64, error)
+	// ListClipboardEntries lists clipboard entries with keyword filter and pagination.
+	ListClipboardEntries(ctx context.Context, keyword string, page, pageSize int) ([]*ClipboardEntry, int64, error)
 }
 
 // clipboardRepository implements ClipboardRepository interface.
@@ -43,35 +43,35 @@ func NewClipboardRepository(repository *base.Repository) ClipboardRepository {
 	}
 }
 
-// CreateEntry generates ID and creates entry in database.
-func (r *clipboardRepository) CreateEntry(ctx context.Context, entry *ClipboardEntry) error {
+// CreateClipboardEntry generates ID and creates clipboard entry in database.
+func (r *clipboardRepository) CreateClipboardEntry(ctx context.Context, entry *ClipboardEntry) error {
 	entry.ID = r.GenerateID()
 	return r.DB(ctx).Create(entry).Error
 }
 
-// DeleteEntry deletes entry by ID.
-func (r *clipboardRepository) DeleteEntry(ctx context.Context, id int64) error {
+// DeleteClipboardEntry deletes clipboard entry by ID.
+func (r *clipboardRepository) DeleteClipboardEntry(ctx context.Context, id int64) error {
 	return r.DB(ctx).Delete(&ClipboardEntry{}, id).Error
 }
 
-// DeleteAllEntries deletes all entries.
-func (r *clipboardRepository) DeleteAllEntries(ctx context.Context) error {
+// DeleteAllClipboardEntries deletes all clipboard entries.
+func (r *clipboardRepository) DeleteAllClipboardEntries(ctx context.Context) error {
 	return r.DB(ctx).Where("1 = 1").Delete(&ClipboardEntry{}).Error
 }
 
-// DeleteOldestEntries deletes the oldest entries by last used time.
-func (r *clipboardRepository) DeleteOldestEntries(ctx context.Context, limit int) error {
+// DeleteOldestClipboardEntries deletes the oldest clipboard entries by last used time.
+func (r *clipboardRepository) DeleteOldestClipboardEntries(ctx context.Context, limit int) error {
 	oldest := r.DB(ctx).Model(&ClipboardEntry{}).Select("id").Order("last_used_at ASC").Limit(limit)
 	return r.DB(ctx).Where("id IN (?)", oldest).Delete(&ClipboardEntry{}).Error
 }
 
-// UpdateEntryLastUsedAt updates last used time of an entry.
-func (r *clipboardRepository) UpdateEntryLastUsedAt(ctx context.Context, id int64) error {
+// UpdateClipboardEntryLastUsedAt updates last used time of a clipboard entry.
+func (r *clipboardRepository) UpdateClipboardEntryLastUsedAt(ctx context.Context, id int64) error {
 	return r.DB(ctx).Model(&ClipboardEntry{}).Where("id = ?", id).Update("last_used_at", time.Now()).Error
 }
 
-// GetEntryByID retrieves entry by ID, returns nil if not found.
-func (r *clipboardRepository) GetEntryByID(ctx context.Context, id int64) (*ClipboardEntry, error) {
+// GetClipboardEntryByID retrieves clipboard entry by ID, returns nil if not found.
+func (r *clipboardRepository) GetClipboardEntryByID(ctx context.Context, id int64) (*ClipboardEntry, error) {
 	var entry ClipboardEntry
 	err := r.DB(ctx).Where("id = ?", id).First(&entry).Error
 	if err != nil {
@@ -83,8 +83,8 @@ func (r *clipboardRepository) GetEntryByID(ctx context.Context, id int64) (*Clip
 	return &entry, nil
 }
 
-// GetEntryByHash retrieves entry by content hash, returns nil if not found.
-func (r *clipboardRepository) GetEntryByHash(ctx context.Context, hash string) (*ClipboardEntry, error) {
+// GetClipboardEntryByHash retrieves clipboard entry by content hash, returns nil if not found.
+func (r *clipboardRepository) GetClipboardEntryByHash(ctx context.Context, hash string) (*ClipboardEntry, error) {
 	var entry ClipboardEntry
 	err := r.DB(ctx).Where("hash = ?", hash).First(&entry).Error
 	if err != nil {
@@ -96,8 +96,8 @@ func (r *clipboardRepository) GetEntryByHash(ctx context.Context, hash string) (
 	return &entry, nil
 }
 
-// CountEntries returns the total number of entries.
-func (r *clipboardRepository) CountEntries(ctx context.Context) (int64, error) {
+// CountClipboardEntries counts clipboard entries.
+func (r *clipboardRepository) CountClipboardEntries(ctx context.Context) (int64, error) {
 	var total int64
 	if err := r.DB(ctx).Model(&ClipboardEntry{}).Count(&total).Error; err != nil {
 		return 0, err
@@ -105,8 +105,8 @@ func (r *clipboardRepository) CountEntries(ctx context.Context) (int64, error) {
 	return total, nil
 }
 
-// ListEntries retrieves entries with keyword filter and pagination.
-func (r *clipboardRepository) ListEntries(ctx context.Context, keyword string, page, pageSize int) ([]*ClipboardEntry, int64, error) {
+// ListClipboardEntries lists clipboard entries with keyword filter and pagination.
+func (r *clipboardRepository) ListClipboardEntries(ctx context.Context, keyword string, page, pageSize int) ([]*ClipboardEntry, int64, error) {
 	var entries []*ClipboardEntry
 	var total int64
 
