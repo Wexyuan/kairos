@@ -15,8 +15,29 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 import * as $models from "./models.js";
 
 /**
+ * HideClipboardWindow hides the clipboard window.
+ */
+export function HideClipboardWindow(): $CancellablePromise<void> {
+    return $Call.ByID(1611355150);
+}
+
+/**
  * SetTheme sets the theme of all windows.
  */
 export function SetTheme(req: $models.SetThemeReq | null): $CancellablePromise<void> {
     return $Call.ByID(4153618025, req);
+}
+
+/**
+ * ShowClipboardWindow shows the clipboard window.
+ */
+export function ShowClipboardWindow(): $CancellablePromise<void> {
+    return $Call.ByID(785172377);
+}
+
+/**
+ * ToggleClipboardWindow toggles the clipboard window.
+ */
+export function ToggleClipboardWindow(): $CancellablePromise<void> {
+    return $Call.ByID(3062285458);
 }
