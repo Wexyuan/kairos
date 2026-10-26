@@ -4,11 +4,13 @@ import (
 	"log"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+	"github.com/wailsapp/wails/v3/pkg/events"
 
 	"github.com/Wexyuan/kairos"
 	"github.com/Wexyuan/kairos/cmd/desktop/wire"
 	appconfig "github.com/Wexyuan/kairos/internal/config"
 	"github.com/Wexyuan/kairos/internal/constant"
+	"github.com/Wexyuan/kairos/internal/module/clipboard"
 	"github.com/Wexyuan/kairos/internal/module/desktop"
 	"github.com/Wexyuan/kairos/pkg/config"
 	"github.com/Wexyuan/kairos/pkg/database"
@@ -16,7 +18,9 @@ import (
 )
 
 // models is the list of models to migrate.
-var models = []any{}
+var models = []any{
+	&clipboard.ClipboardEntry{},
+}
 
 // main starts the application.
 func main() {
@@ -74,10 +78,11 @@ func main() {
 	}
 
 	// 6. Build the application.
-	app, err := wire.NewWireApp(&cfg)
+	app, cleanup, err := wire.NewWireApp(&cfg, lg)
 	if err != nil {
 		lg.Fatalf("[main] build application error: %v", err)
 	}
+	defer cleanup()
 
 	// 7. Create the main window.
 	win := app.Window.NewWithOptions(application.WebviewWindowOptions{
@@ -95,10 +100,31 @@ func main() {
 		URL: "/",
 	})
 
-	// 8. Run the system tray.
+	// 8. Create the clipboard window.
+	clipboardWin := app.Window.NewWithOptions(application.WebviewWindowOptions{
+		Name:             constant.ClipboardWindow,
+		Title:            "剪贴板",
+		Width:            440,
+		Height:           560,
+		BackgroundColour: application.NewRGB(255, 255, 255),
+		Frameless:        true,
+		AlwaysOnTop:      true,
+		Hidden:           true,
+		DisableResize:    true,
+		Windows: application.WindowsWindow{
+			WebView2CompositionHosting: true,
+			HiddenOnTaskbar:            true,
+		},
+		URL: "/clipboard.html",
+	})
+	clipboardWin.RegisterHook(events.Common.WindowLostFocus, func(*application.WindowEvent) {
+		clipboardWin.Hide()
+	})
+
+	// 9. Run the system tray.
 	desktop.NewTray(win, cfg.App.Name, kairos.TrayIcon).RunTray()
 
-	// 9. Run the application.
+	// 10. Run the application.
 	lg.Infof("[main] application starting: config=%s root=%s", cfgPath, root)
 	if err := app.Run(); err != nil {
 		lg.Fatalf("[main] run application error: %v", err)

@@ -11,14 +11,23 @@ import (
 )
 
 func provideDatabase(cfg *config.Config, log *logger.Logger) (*database.Database, func(), error) {
+	root, err := config.ResolveStorageRoot(cfg.App.Name)
+	if err != nil {
+		return nil, nil, fmt.Errorf("[wire] resolve storage root path error: %w", err)
+	}
+	dsn, err := config.ResolveStoragePath(root, cfg.Database.DSN)
+	if err != nil {
+		return nil, nil, fmt.Errorf("[wire] resolve database dsn path error: %w", err)
+	}
+
 	db, err := database.New(database.Options{
-		DSN:             cfg.Database.DSN,
+		DSN:             dsn,
 		MaxOpenConns:    cfg.Database.MaxOpenConns,
 		MaxIdleConns:    cfg.Database.MaxIdleConns,
 		ConnMaxLifetime: cfg.Database.ConnMaxLifetime,
 	})
 	if err != nil {
-		return nil, nil, fmt.Errorf("[wire] init database error: dsn=%s: %w", cfg.Database.DSN, err)
+		return nil, nil, fmt.Errorf("[wire] init database error: dsn=%s: %w", dsn, err)
 	}
 	return db, func() {
 		if err := db.Close(); err != nil {
