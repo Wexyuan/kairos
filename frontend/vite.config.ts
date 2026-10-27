@@ -47,4 +47,12 @@ export default defineConfig({
     host: '127.0.0.1',
     port: Number(process.env.WAILS_VITE_PORT ?? 9245),
   },
+  build: {
+    rolldownOptions: {
+      input: {
+        main: fileURLToPath(new URL('./index.html', import.meta.url)),
+        clipboard: fileURLToPath(new URL('./clipboard.html', import.meta.url)),
+      },
+    },
+  },
 })

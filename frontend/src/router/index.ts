@@ -24,6 +24,12 @@ export function setupRouter(): Router {
         meta: { title: '笔记', icon: 'i-mdi-notebook-outline' },
       },
       {
+        path: '/clipboard',
+        name: 'clipboard',
+        component: () => import('@/pages/clipboard/index.vue'),
+        meta: { title: '剪贴板', icon: 'i-mdi-clipboard-text-outline' },
+      },
+      {
         path: '/settings',
         name: 'settings',
         component: () => import('@/pages/settings/index.vue'),
