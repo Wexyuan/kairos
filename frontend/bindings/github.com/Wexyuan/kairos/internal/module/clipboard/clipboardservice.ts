@@ -54,8 +54,7 @@ export function SaveClipboardText(content: string): $CancellablePromise<void> {
 }
 
 /**
- * StartClipboardWatcher starts the clipboard watcher until ctx is cancelled.
- * Content already in the clipboard at startup only primes the sequence.
+ * StartClipboardWatcher starts the clipboard watcher.
  */
 export function StartClipboardWatcher(): $CancellablePromise<void> {
     return $Call.ByID(3439184324);
