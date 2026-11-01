@@ -105,6 +105,21 @@ tasks:
       FORMAT: '{{.FORMAT | default "nsis"}}'
       INSTALL_SCOPE: '{{.INSTALL_SCOPE | default "machine"}}'
 
+  release:version:
+    summary: Builds a release for an explicit VERSION
+    preconditions:
+      - sh: '[ -n "{{.VERSION}}" ]'
+        msg: "VERSION is required. Example: wails3 task release:version VERSION=0.1.0"
+    cmds:
+      - powershell -NoProfile -ExecutionPolicy Bypass -File "{{.ROOT_DIR}}/build/windows/release.ps1" -RootDir "{{.ROOT_DIR}}" -AppName "{{.APP_NAME}}" -Arch "{{.ARCH | default ARCH}}" -Version "{{.VERSION}}" -Phase sync
+      - task: create:nsis:installer
+        vars:
+          INSTALL_SCOPE: '{{.INSTALL_SCOPE | default "machine"}}'
+      - powershell -NoProfile -ExecutionPolicy Bypass -File "{{.ROOT_DIR}}/build/windows/release.ps1" -RootDir "{{.ROOT_DIR}}" -AppName "{{.APP_NAME}}" -Arch "{{.ARCH | default ARCH}}" -Version "{{.VERSION}}" -Phase collect
+    vars:
+      VERSION: '{{.VERSION}}'
+      INSTALL_SCOPE: '{{.INSTALL_SCOPE | default "machine"}}'
+
   generate:syso:
     summary: Generates Windows `.syso` file
     dir: build

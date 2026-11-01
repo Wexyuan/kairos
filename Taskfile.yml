@@ -22,6 +22,14 @@ tasks:
     cmds:
       - task: "{{.GOOS}}:package"
 
+  release:version:
+    summary: Builds a release for an explicit VERSION into bin/release/v<version>
+    cmds:
+      - task: "{{.GOOS}}:release:version"
+        vars:
+          VERSION: '{{.VERSION}}'
+          INSTALL_SCOPE: '{{.INSTALL_SCOPE}}'
+
   run:
     summary: Runs the application
     cmds:

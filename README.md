@@ -62,6 +62,7 @@ cd frontend && pnpm install   # 前端依赖
 | `wails3 task build` | 构建应用 |
 | `wails3 task run` | 运行应用 |
 | `wails3 task package` | 打包安装包 |
+| `wails3 task release:version VERSION=0.1.1` | 按指定版本发包（`VERSION` 必填） |
 | `wails3 task generate:bindings` | 生成绑定 |
 | `wails3 task generate:icons` | 生成图标 |
 
