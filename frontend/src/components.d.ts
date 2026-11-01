@@ -12,8 +12,11 @@ export {}
 declare module 'vue' {
   export interface GlobalComponents {
     AppLayout: typeof import('./components/layout/app-layout.vue')['default']
+    AppProviders: typeof import('./components/layout/app-providers.vue')['default']
     AppSidebar: typeof import('./components/layout/app-sidebar.vue')['default']
     AppTopbar: typeof import('./components/layout/app-topbar.vue')['default']
+    ClipboardList: typeof import('./components/clipboard/clipboard-list.vue')['default']
+    ClipboardPanel: typeof import('./components/clipboard/clipboard-panel.vue')['default']
     NButton: typeof import('naive-ui')['NButton']
     NConfigProvider: typeof import('naive-ui')['NConfigProvider']
     NDialogProvider: typeof import('naive-ui')['NDialogProvider']
@@ -30,9 +33,11 @@ declare module 'vue' {
     NNotificationProvider: typeof import('naive-ui')['NNotificationProvider']
     NoteEditor: typeof import('./components/notes/note-editor.vue')['default']
     NoteTree: typeof import('./components/notes/note-tree.vue')['default']
+    NPagination: typeof import('naive-ui')['NPagination']
     NScrollbar: typeof import('naive-ui')['NScrollbar']
     NSpin: typeof import('naive-ui')['NSpin']
     NSwitch: typeof import('naive-ui')['NSwitch']
+    NTag: typeof import('naive-ui')['NTag']
     NTree: typeof import('naive-ui')['NTree']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
