@@ -10,5 +10,6 @@ export type {
     ClipboardEntryItem,
     CopyClipboardEntryReq,
     DeleteClipboardEntryReq,
-    ListClipboardEntriesReq
+    ListClipboardEntriesReq,
+    SetClipboardEntryPinnedReq
 } from "./models.js";

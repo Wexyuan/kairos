@@ -17,6 +17,11 @@ export interface ClipboardEntryItem {
     "content": string;
 
     /**
+     * whether the entry is pinned
+     */
+    "pinned": boolean;
+
+    /**
      * last used time
      */
     "last_used_at": string;
@@ -60,4 +65,19 @@ export interface ListClipboardEntriesReq {
      * search keyword in content
      */
     "keyword": string;
+}
+
+/**
+ * SetClipboardEntryPinnedReq is the set clipboard entry pinned request.
+ */
+export interface SetClipboardEntryPinnedReq {
+    /**
+     * clipboard entry ID
+     */
+    "id": string;
+
+    /**
+     * target pinned state
+     */
+    "pinned": boolean;
 }

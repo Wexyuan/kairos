@@ -9,7 +9,8 @@ import (
 // ClipboardEntry is the clipboard entry entity stored in the database.
 type ClipboardEntry struct {
 	base.BaseModel
-	Content    string    `gorm:"type:text;not null;comment:clipboard content" json:"content"`
-	Hash       string    `gorm:"type:varchar(64);not null;index:idx_clipboard_entries_hash;comment:sha256 hash of the content" json:"hash"`
-	LastUsedAt time.Time `gorm:"not null;index:idx_last_used_at;comment:last used time" json:"last_used_at"`
+	Content    string     `gorm:"type:text;not null;comment:clipboard content" json:"content"`
+	Hash       string     `gorm:"type:varchar(64);not null;index:idx_clipboard_entries_hash;comment:sha256 hash of the content" json:"hash"`
+	PinnedAt   *time.Time `gorm:"index:idx_clipboard_entries_pinned_at;comment:pinned time, null means not pinned" json:"pinned_at"`
+	LastUsedAt time.Time  `gorm:"not null;index:idx_last_used_at;comment:last used time" json:"last_used_at"`
 }

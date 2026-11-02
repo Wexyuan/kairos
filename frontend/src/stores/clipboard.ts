@@ -44,6 +44,15 @@ export const useClipboardStore = defineStore('clipboard', () => {
     await listEntries()
   }
 
+  // setEntryPinned pins or unpins an entry and reloads the visible list.
+  async function setEntryPinned(id: string, pinned: boolean): Promise<void> {
+    await ClipboardService.SetClipboardEntryPinned({ id, pinned })
+    if (keyword.value)
+      await searchEntries()
+    else
+      await listEntries()
+  }
+
   // deleteEntry deletes clipboard entry.
   async function deleteEntry(id: string): Promise<void> {
     await ClipboardService.DeleteClipboardEntry({ id })
@@ -90,6 +99,7 @@ export const useClipboardStore = defineStore('clipboard', () => {
     listLoading,
     searchEntries,
     copyEntry,
+    setEntryPinned,
     deleteEntry,
     clearEntries,
     listEntries,

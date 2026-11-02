@@ -83,6 +83,12 @@ async function copyEntry(entry: ClipboardEntryItem): Promise<void> {
   }
 }
 
+async function togglePinned(entry: ClipboardEntryItem): Promise<void> {
+  const pinned = !entry.pinned
+  if (await runAction(pinned ? '置顶' : '取消置顶', () => store.setEntryPinned(entry.id, pinned)))
+    message.success(pinned ? '已置顶' : '已取消置顶')
+}
+
 function deleteEntry(entry: ClipboardEntryItem): void {
   confirmAction({
     title: '删除',
@@ -99,11 +105,15 @@ const KEY_HANDLERS: Record<string, () => void> = {
   Escape: () => emit('escape'),
 }
 
+const KEYS_ALLOWED_IN_INPUT = new Set(['Enter', 'Escape'])
+
 if (props.window)
   useEventListener(window, 'keydown', handleKeydown)
 
 function handleKeydown(event: KeyboardEvent): void {
   if (event.isComposing || (event.target instanceof HTMLElement && event.target.closest('.n-modal-container')))
+    return
+  if (!KEYS_ALLOWED_IN_INPUT.has(event.key) && event.target instanceof HTMLElement && event.target.closest('input, textarea, [contenteditable="true"]'))
     return
   const handler = KEY_HANDLERS[event.key]
   if (!handler)
@@ -165,6 +175,11 @@ function deleteSelectedEntry(): void {
             <n-button quaternary size="tiny" class="icon-btn" title="复制" @click.stop="copyEntry(row.entry)">
               <template #icon>
                 <span class="i-mdi-content-copy h-4 w-4" />
+              </template>
+            </n-button>
+            <n-button quaternary size="tiny" class="icon-btn" :title="row.entry.pinned ? '取消置顶' : '置顶'" @click.stop="togglePinned(row.entry)">
+              <template #icon>
+                <span :class="row.entry.pinned ? 'i-mdi-pin text-brand' : 'i-mdi-pin-outline'" class="h-4 w-4" />
               </template>
             </n-button>
             <n-button quaternary size="tiny" class="icon-btn" title="删除" @click.stop="deleteEntry(row.entry)">

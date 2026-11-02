@@ -18,16 +18,18 @@ type ClipboardRepository interface {
 	DeleteClipboardEntry(ctx context.Context, id int64) error
 	// DeleteAllClipboardEntries deletes all clipboard entries.
 	DeleteAllClipboardEntries(ctx context.Context) error
-	// DeleteOldestClipboardEntries deletes the oldest clipboard entries by last used time.
-	DeleteOldestClipboardEntries(ctx context.Context, limit int) error
+	// DeleteExcessClipboardEntries deletes the unpinned entries beyond the capacity.
+	DeleteExcessClipboardEntries(ctx context.Context, capacity int) error
+	// UpdateClipboardEntryPinnedAt updates pinned time, nil unpins the entry.
+	UpdateClipboardEntryPinnedAt(ctx context.Context, id int64, pinnedAt *time.Time) error
 	// UpdateClipboardEntryLastUsedAt updates last used time of a clipboard entry.
 	UpdateClipboardEntryLastUsedAt(ctx context.Context, id int64) error
 	// GetClipboardEntryByID retrieves clipboard entry by ID, returns nil if not found.
 	GetClipboardEntryByID(ctx context.Context, id int64) (*ClipboardEntry, error)
 	// GetClipboardEntryByHash retrieves clipboard entry by content hash, returns nil if not found.
 	GetClipboardEntryByHash(ctx context.Context, hash string) (*ClipboardEntry, error)
-	// CountClipboardEntries counts clipboard entries.
-	CountClipboardEntries(ctx context.Context) (int64, error)
+	// CountPinnedClipboardEntries counts pinned clipboard entries.
+	CountPinnedClipboardEntries(ctx context.Context) (int64, error)
 	// ListClipboardEntries lists clipboard entries with keyword filter and pagination.
 	ListClipboardEntries(ctx context.Context, keyword string, page, pageSize int) ([]*ClipboardEntry, int64, error)
 }
@@ -59,10 +61,19 @@ func (r *clipboardRepository) DeleteAllClipboardEntries(ctx context.Context) err
 	return r.DB(ctx).Where("1 = 1").Delete(&ClipboardEntry{}).Error
 }
 
-// DeleteOldestClipboardEntries deletes the oldest clipboard entries by last used time.
-func (r *clipboardRepository) DeleteOldestClipboardEntries(ctx context.Context, limit int) error {
-	oldest := r.DB(ctx).Model(&ClipboardEntry{}).Select("id").Order("last_used_at ASC").Limit(limit)
-	return r.DB(ctx).Where("id IN (?)", oldest).Delete(&ClipboardEntry{}).Error
+// DeleteExcessClipboardEntries deletes the unpinned entries beyond the capacity.
+func (r *clipboardRepository) DeleteExcessClipboardEntries(ctx context.Context, capacity int) error {
+	newest := r.DB(ctx).Model(&ClipboardEntry{}).Select("id").Where("pinned_at IS NULL").Order("last_used_at DESC").Limit(capacity)
+	return r.DB(ctx).Where("pinned_at IS NULL").Where("id NOT IN (?)", newest).Delete(&ClipboardEntry{}).Error
+}
+
+// UpdateClipboardEntryPinnedAt updates pinned time, nil unpins the entry.
+func (r *clipboardRepository) UpdateClipboardEntryPinnedAt(ctx context.Context, id int64, pinnedAt *time.Time) error {
+	var value any
+	if pinnedAt != nil {
+		value = *pinnedAt
+	}
+	return r.DB(ctx).Model(&ClipboardEntry{}).Where("id = ?", id).Update("pinned_at", value).Error
 }
 
 // UpdateClipboardEntryLastUsedAt updates last used time of a clipboard entry.
@@ -96,10 +107,10 @@ func (r *clipboardRepository) GetClipboardEntryByHash(ctx context.Context, hash 
 	return &entry, nil
 }
 
-// CountClipboardEntries counts clipboard entries.
-func (r *clipboardRepository) CountClipboardEntries(ctx context.Context) (int64, error) {
+// CountPinnedClipboardEntries counts pinned clipboard entries.
+func (r *clipboardRepository) CountPinnedClipboardEntries(ctx context.Context) (int64, error) {
 	var total int64
-	if err := r.DB(ctx).Model(&ClipboardEntry{}).Count(&total).Error; err != nil {
+	if err := r.DB(ctx).Model(&ClipboardEntry{}).Where("pinned_at IS NOT NULL").Count(&total).Error; err != nil {
 		return 0, err
 	}
 	return total, nil
@@ -119,7 +130,7 @@ func (r *clipboardRepository) ListClipboardEntries(ctx context.Context, keyword 
 	}
 
 	offset := (page - 1) * pageSize
-	if err := db.Order("last_used_at DESC").Offset(offset).Limit(pageSize).Find(&entries).Error; err != nil {
+	if err := db.Order("(pinned_at IS NULL) ASC, pinned_at DESC, last_used_at DESC, id DESC").Offset(offset).Limit(pageSize).Find(&entries).Error; err != nil {
 		return nil, 0, err
 	}
 

@@ -54,6 +54,13 @@ export function SaveClipboardText(content: string): $CancellablePromise<void> {
 }
 
 /**
+ * SetClipboardEntryPinned pins or unpins a clipboard entry by the target state.
+ */
+export function SetClipboardEntryPinned(req: $models.SetClipboardEntryPinnedReq | null): $CancellablePromise<void> {
+    return $Call.ByID(1036773018, req);
+}
+
+/**
  * StartClipboardWatcher starts the clipboard watcher.
  */
 export function StartClipboardWatcher(): $CancellablePromise<void> {

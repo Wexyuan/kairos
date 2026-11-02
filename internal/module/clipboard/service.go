@@ -16,8 +16,10 @@ import (
 )
 
 const (
-	// maxEntries is the clipboard entry history capacity.
+	// maxEntries is the max count of unpinned clipboard entries.
 	maxEntries = 500
+	// maxPinnedEntries is the max count of pinned clipboard entries.
+	maxPinnedEntries = 50
 	// watcherInterval is the interval of the clipboard watcher.
 	watcherInterval = 500 * time.Millisecond
 )
@@ -64,14 +66,8 @@ func (s *ClipboardService) SaveClipboardText(ctx context.Context, content string
 		return fmt.Errorf("[clipboard] create clipboard entry error: %w", err)
 	}
 
-	total, err := s.repo.CountClipboardEntries(ctx)
-	if err != nil {
-		return fmt.Errorf("[clipboard] count clipboard entries error: %w", err)
-	}
-	if total > maxEntries {
-		if err := s.repo.DeleteOldestClipboardEntries(ctx, int(total-maxEntries)); err != nil {
-			return fmt.Errorf("[clipboard] delete oldest clipboard entries error: %w", err)
-		}
+	if err := s.repo.DeleteExcessClipboardEntries(ctx, maxEntries); err != nil {
+		return fmt.Errorf("[clipboard] delete excess clipboard entries error: %w", err)
 	}
 	return nil
 }
@@ -94,6 +90,44 @@ func (s *ClipboardService) CopyClipboardEntry(ctx context.Context, req *CopyClip
 	}
 	if err := s.repo.UpdateClipboardEntryLastUsedAt(ctx, entry.ID); err != nil {
 		return fmt.Errorf("[clipboard] update clipboard entry last used time error: %w", err)
+	}
+	return nil
+}
+
+// SetClipboardEntryPinned pins or unpins a clipboard entry by the target state.
+func (s *ClipboardService) SetClipboardEntryPinned(ctx context.Context, req *SetClipboardEntryPinnedReq) error {
+	id, err := s.parseClipboardEntryID(req.ID)
+	if err != nil {
+		return err
+	}
+	entry, err := s.repo.GetClipboardEntryByID(ctx, id)
+	if err != nil {
+		return fmt.Errorf("[clipboard] get clipboard entry by ID error: %w", err)
+	}
+	if entry == nil {
+		return ecode.ErrNotFound
+	}
+	// Return early on the same state, otherwise re-pinning would refresh the pinned order.
+	if (entry.PinnedAt != nil) == req.Pinned {
+		return nil
+	}
+	if !req.Pinned {
+		if err := s.repo.UpdateClipboardEntryPinnedAt(ctx, id, nil); err != nil {
+			return fmt.Errorf("[clipboard] clear clipboard entry pinned time error: %w", err)
+		}
+		return nil
+	}
+
+	pinned, err := s.repo.CountPinnedClipboardEntries(ctx)
+	if err != nil {
+		return fmt.Errorf("[clipboard] count pinned clipboard entries error: %w", err)
+	}
+	if pinned >= maxPinnedEntries {
+		return ecode.ErrClipboardPinLimit
+	}
+	now := time.Now()
+	if err := s.repo.UpdateClipboardEntryPinnedAt(ctx, id, &now); err != nil {
+		return fmt.Errorf("[clipboard] set clipboard entry pinned time error: %w", err)
 	}
 	return nil
 }
@@ -131,6 +165,7 @@ func (s *ClipboardService) ListClipboardEntries(ctx context.Context, req *ListCl
 		list = append(list, &ClipboardEntryItem{
 			ID:         strconv.FormatInt(entry.ID, 10),
 			Content:    entry.Content,
+			Pinned:     entry.PinnedAt != nil,
 			LastUsedAt: entry.LastUsedAt,
 		})
 	}

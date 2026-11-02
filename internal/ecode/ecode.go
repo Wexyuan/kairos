@@ -12,3 +12,8 @@ var (
 	ErrNotFound       = errs.New(1005, "not found error")
 	ErrTimeout        = errs.New(1006, "timeout error")
 )
+
+// Clipboard module error codes, ranged 2000-2099.
+var (
+	ErrClipboardPinLimit = errs.New(2000, "clipboard pinned entries limit reached")
+)
