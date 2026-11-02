@@ -39,8 +39,23 @@ const rows = computed<EntryRow[]>(() => store.entries.map(toEntryRow))
 const selectedRow = computed(() => rows.value[selectedIndex.value])
 const emptyText = computed(() => (store.keyword ? '没有匹配的剪贴板记录' : '暂无记录，复制点什么试试叭 (^v^)'))
 
+let firstEntryId: string | undefined
+
 watch(rows, () => {
-  selectedIndex.value = props.window && rows.value.length ? 0 : -1
+  if (!props.window)
+    return
+  const first = rows.value[0]
+  if (!first) {
+    selectedIndex.value = -1
+    firstEntryId = undefined
+    return
+  }
+  if (first.entry.id !== firstEntryId) {
+    selectedIndex.value = 0
+    firstEntryId = first.entry.id
+    return
+  }
+  selectedIndex.value = Math.min(selectedIndex.value, rows.value.length - 1)
 })
 
 watch(selectedIndex, (index) => {
@@ -128,6 +143,9 @@ function moveSelection(step: number): void {
     return
   const next = selectedIndex.value < 0 ? (step > 0 ? 0 : last) : selectedIndex.value + step
   selectedIndex.value = Math.min(last, Math.max(0, next))
+  // Prefetch before the cursor reaches the end so arrow keys never stall.
+  if (props.window && step > 0 && selectedIndex.value >= last - 2)
+    void runAction('加载更多剪贴板', () => store.loadMore())
 }
 
 function copySelectedEntry(): void {
@@ -140,10 +158,18 @@ function deleteSelectedEntry(): void {
   if (selectedRow.value)
     deleteEntry(selectedRow.value.entry)
 }
+
+function handleScroll(event: Event): void {
+  if (!props.window || !(event.target instanceof HTMLElement))
+    return
+  const target = event.target
+  if (target.scrollTop + target.clientHeight >= target.scrollHeight - 120)
+    void runAction('加载更多剪贴板记录', () => store.loadMore())
+}
 </script>
 
 <template>
-  <div ref="listContainerRef" class="flex flex-1 flex-col min-h-0">
+  <div ref="listContainerRef" class="flex flex-1 flex-col min-h-0" @scroll.capture="handleScroll">
     <div v-if="!rows.length" class="flex-center flex-1">
       <n-spin v-if="store.listLoading" :size="20" />
       <n-empty v-else :description="emptyText" />
@@ -188,6 +214,12 @@ function deleteSelectedEntry(): void {
               </template>
             </n-button>
           </div>
+        </li>
+        <li v-if="store.loadingMore" class="p-2 flex-center">
+          <n-spin :size="14" />
+        </li>
+        <li v-else-if="props.window && store.total > store.pageSize && store.entries.length >= store.total" class="text-xs text-ink/45 p-2 flex-center">
+          已加载全部共 {{ store.total }} 条
         </li>
       </ul>
     </n-scrollbar>

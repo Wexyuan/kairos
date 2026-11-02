@@ -29,8 +29,10 @@ export const useClipboardStore = defineStore('clipboard', () => {
   const total = ref(0)
   const page = ref(1)
   const pageSize = ref(20)
+  const loadedPage = ref(1)
   const keyword = ref('')
   const listLoading = ref(false)
+  const loadingMore = ref(false)
 
   // searchEntries searches clipboard entries.
   async function searchEntries(): Promise<void> {
@@ -78,6 +80,7 @@ export const useClipboardStore = defineStore('clipboard', () => {
       total.value = result?.total ?? 0
       page.value = result?.page ?? page.value
       pageSize.value = result?.page_size ?? pageSize.value
+      loadedPage.value = page.value
 
       const lastPage = Math.max(1, Math.ceil(total.value / pageSize.value))
       if (!entries.value.length && page.value > lastPage) {
@@ -90,6 +93,32 @@ export const useClipboardStore = defineStore('clipboard', () => {
     }
   }
 
+  // loadMore loads more clipboard entries if there are more entries available.
+  async function loadMore(): Promise<void> {
+    if (loadingMore.value || entries.value.length >= total.value)
+      return
+    loadingMore.value = true
+    try {
+      const next = loadedPage.value + 1
+      const result = await ClipboardService.ListClipboardEntries({
+        page: next,
+        page_size: pageSize.value,
+        keyword: keyword.value.trim(),
+      })
+      const loaded = toClipboardEntries(result?.list)
+      total.value = result?.total ?? total.value
+      if (!loaded.length) {
+        total.value = entries.value.length
+        return
+      }
+      entries.value.push(...loaded)
+      loadedPage.value = next
+    }
+    finally {
+      loadingMore.value = false
+    }
+  }
+
   return {
     entries,
     total,
@@ -97,11 +126,13 @@ export const useClipboardStore = defineStore('clipboard', () => {
     pageSize,
     keyword,
     listLoading,
+    loadingMore,
     searchEntries,
     copyEntry,
     setEntryPinned,
     deleteEntry,
     clearEntries,
     listEntries,
+    loadMore,
   }
 })
