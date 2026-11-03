@@ -7,6 +7,12 @@ type NoteNode struct {
 	Children []*NoteNode `json:"children"` // child nodes (only for directories)
 }
 
+// CreateFolderReq is the create folder request.
+type CreateFolderReq struct {
+	Root string `json:"root"` // absolute workspace root path
+	Path string `json:"path"` // new folder path relative to root
+}
+
 // CreateNoteReq is the create note request.
 type CreateNoteReq struct {
 	Root string `json:"root"` // absolute workspace root path

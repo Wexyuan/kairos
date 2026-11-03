@@ -48,6 +48,24 @@ func (s *NotesService) ListTree(ctx context.Context, root string) ([]*NoteNode, 
 	return buildTree(root, "")
 }
 
+// CreateFolder creates a new note folder.
+func (s *NotesService) CreateFolder(ctx context.Context, req *CreateFolderReq) error {
+	abs, err := resolveSafe(req.Root, req.Path)
+	if err != nil {
+		return err
+	}
+	if abs == filepath.Clean(req.Root) {
+		return fmt.Errorf("[notes] folder path is empty")
+	}
+	if _, err := os.Stat(abs); err == nil {
+		return fmt.Errorf("[notes] folder already exists: %s", req.Path)
+	}
+	if err := os.MkdirAll(abs, 0o755); err != nil {
+		return fmt.Errorf("[notes] create folder %s error: %w", req.Path, err)
+	}
+	return nil
+}
+
 // CreateNote creates a new markdown note.
 func (s *NotesService) CreateNote(ctx context.Context, req *CreateNoteReq) error {
 	abs, err := resolveSafe(req.Root, req.Path)

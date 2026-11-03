@@ -15,6 +15,13 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 import * as $models from "./models.js";
 
 /**
+ * CreateFolder creates a new note folder.
+ */
+export function CreateFolder(req: $models.CreateFolderReq | null): $CancellablePromise<void> {
+    return $Call.ByID(2488584406, req);
+}
+
+/**
  * CreateNote creates a new markdown note.
  */
 export function CreateNote(req: $models.CreateNoteReq | null): $CancellablePromise<void> {

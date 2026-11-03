@@ -16,11 +16,19 @@ const treeOptions = computed<TreeOption[]>(() => toTreeOptions(filteredTree.valu
 const selectedKeys = computed(() => (store.activePath ? [store.activePath] : []))
 const expandedKeys = ref<Array<string | number>>([])
 const contextMenu = ref({ show: false, x: 0, y: 0, path: '' })
+const createActions: DropdownOption[] = [
+  { key: 'create-folder', label: '新建文件夹', icon: renderIcon('i-mdi-folder-plus-outline') },
+  { key: 'create-note', label: '新建笔记', icon: renderIcon('i-mdi-file-plus-outline') },
+]
 const noteNodeActions: DropdownOption[] = [
-  { key: 'create', label: '新建笔记', icon: renderIcon('i-mdi-file-plus-outline') },
+  ...createActions,
+  { key: 'divider', type: 'divider' },
   { key: 'rename', label: '重命名', icon: renderIcon('i-mdi-pencil-outline') },
   { key: 'delete', label: '删除', icon: renderIcon('i-mdi-delete-outline') },
 ]
+// Hide rename and delete for the workspace root menu.
+const workspaceActions: DropdownOption[] = createActions
+const contextMenuOptions = computed<DropdownOption[]>(() => (contextMenu.value.path ? noteNodeActions : workspaceActions))
 
 onMounted(() => runAction('加载笔记', () => store.listTree()))
 
@@ -49,28 +57,28 @@ function locateActiveNote(): void {
   if (!path)
     return
   expandAncestors(path)
-  nextTick(() => {
-    treeContainerRef.value?.querySelector(`[data-path="${CSS.escape(path)}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
-  })
+  scrollToPath(path)
 }
 
 function toTreeOptions(nodes: NoteNode[]): TreeOption[] {
   return nodes.map((node) => {
-    const option: TreeOption = { key: node.path, label: basename(node.path), isLeaf: !node.is_dir }
-    if (node.is_dir)
-      option.children = toTreeOptions(toNoteNodes(node.children))
+    const children = node.is_dir ? toTreeOptions(toNoteNodes(node.children)) : undefined
+    const option: TreeOption = { key: node.path, label: basename(node.path), isLeaf: !children?.length }
+    if (children?.length)
+      option.children = children
     return option
   })
 }
 
 function renderPrefix({ option, selected }: { option: TreeOption, selected: boolean }): VNodeChild {
+  const isDir = store.findNode(String(option.key))?.is_dir ?? false
   const expanded = expandedKeys.value.includes(String(option.key))
-  const cls = option.isLeaf ? 'i-mdi-file-document-outline' : expanded ? 'i-mdi-folder-open-outline' : 'i-mdi-folder-outline'
+  const cls = isDir ? (expanded ? 'i-mdi-folder-open-outline' : 'i-mdi-folder-outline') : 'i-mdi-file-document-outline'
   return h('span', { class: [cls, 'h-4 w-4', selected ? 'text-brand' : 'text-ink/60'] })
 }
 
 function overrideNodeClick({ option }: { option: TreeOption }): TreeOverrideNodeClickBehaviorReturn {
-  return option.isLeaf ? 'default' : 'toggleExpand'
+  return store.findNode(String(option.key))?.is_dir ? 'toggleExpand' : 'default'
 }
 
 function nodeProps({ option }: { option: TreeOption }) {
@@ -87,6 +95,13 @@ function nodeProps({ option }: { option: TreeOption }) {
 
 function openContextMenu(event: MouseEvent, path: string): void {
   contextMenu.value = { show: true, x: event.clientX, y: event.clientY, path }
+}
+
+function openWorkspaceContextMenu(event: MouseEvent): void {
+  if (searchText.value.trim())
+    return
+  event.preventDefault()
+  contextMenu.value = { show: true, x: event.clientX, y: event.clientY, path: '' }
 }
 
 function filterNotes(nodes: NoteNode[], keyword: string): NoteNode[] {
@@ -119,7 +134,8 @@ function collectDirKeys(nodes: NoteNode[]): string[] {
 }
 
 function handleNoteNodeSelect(keys: Array<string | number>): void {
-  store.activePath = keys.length > 0 ? String(keys[0]) : ''
+  const path = keys.length > 0 ? String(keys[0]) : ''
+  store.activePath = path && !store.findNode(path)?.is_dir ? path : ''
 }
 
 function expandAncestors(path: string): void {
@@ -136,7 +152,12 @@ function handleContextMenuSelect(key: string | number): void {
   const { path } = contextMenu.value
   contextMenu.value.show = false
   switch (key) {
-    case 'create': {
+    case 'create-folder': {
+      const node = store.findNode(path)
+      openCreateFolderDialog(!node || node.is_dir ? path : dirname(path))
+      break
+    }
+    case 'create-note': {
       const node = store.findNode(path)
       openCreateNoteDialog(!node || node.is_dir ? path : dirname(path))
       break
@@ -150,6 +171,20 @@ function handleContextMenuSelect(key: string | number): void {
   }
 }
 
+function openCreateFolderDialog(dir: string): void {
+  inputAction({ title: '新建文件夹', initial: getDefaultFolderName(dir), action: name => submitCreateFolder(dir, name) })
+}
+
+async function submitCreateFolder(dir: string, name: string): Promise<void> {
+  validateEntryName(name, '文件夹')
+  const path = join(dir, name)
+  if (store.findNode(path))
+    throw new Error(`已存在同名文件夹：${basename(path)}`)
+  await store.createFolder(path)
+  expandAncestors(path)
+  scrollToPath(path)
+}
+
 function openCreateNoteDialogInCurFolder(): void {
   openCreateNoteDialog(store.activePath ? dirname(store.activePath) : '')
 }
@@ -159,8 +194,7 @@ function openCreateNoteDialog(dir: string): void {
 }
 
 async function submitCreateNote(dir: string, name: string): Promise<void> {
-  if (!name)
-    throw new Error('请输入笔记名称')
+  validateEntryName(name, '笔记')
   const path = join(dir, ensureNoteExt(name))
   if (store.findNode(path))
     throw new Error(`已存在同名笔记：${basename(path)}`)
@@ -172,13 +206,13 @@ function openRenameNoteDialog(path: string): void {
 }
 
 async function submitRenameNote(path: string, name: string): Promise<void> {
-  if (!name)
-    throw new Error('请输入笔记名称')
-  const target = join(dirname(path), ensureNoteExt(name))
+  const isDir = store.findNode(path)?.is_dir ?? false
+  validateEntryName(name, isDir ? '文件夹' : '笔记')
+  const target = join(dirname(path), isDir ? name : ensureNoteExt(name))
   if (target === path)
     return
   if (store.findNode(target))
-    throw new Error(`已存在同名笔记：${basename(target)}`)
+    throw new Error(`已存在同名${isDir ? '文件夹' : '笔记'}：${basename(target)}`)
   await store.renameNote(path, target)
 }
 
@@ -195,6 +229,12 @@ function renderIcon(icon: string): () => VNodeChild {
   return () => h('span', { class: `${icon} h-4 w-4` })
 }
 
+function scrollToPath(path: string): void {
+  nextTick(() => {
+    treeContainerRef.value?.querySelector(`[data-path="${CSS.escape(path)}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  })
+}
+
 function ensureNoteExt(name: string): string {
   return /\.md$/i.test(name) ? name : `${name}.md`
 }
@@ -204,6 +244,24 @@ function getDefaultNoteName(dir: string): string {
   let name = '未命名.md'
   while (store.findNode(join(dir, name))) name = `未命名 ${++i}.md`
   return name
+}
+
+function getDefaultFolderName(dir: string): string {
+  let i = 0
+  let name = '新建文件夹'
+  while (store.findNode(join(dir, name))) name = `新建文件夹 ${++i}`
+  return name
+}
+
+function validateEntryName(name: string, label: string): void {
+  if (!name)
+    throw new Error(`请输入${label}名称`)
+  for (const segment of name.split('/')) {
+    if (!segment)
+      throw new Error(`${label}名称不能包含空路径段`)
+    if (segment.startsWith('.'))
+      throw new Error(`${label}名称不能以 . 开头`)
+  }
 }
 </script>
 
@@ -248,7 +306,7 @@ function getDefaultNoteName(dir: string): string {
       </n-empty>
     </div>
 
-    <div v-else-if="!store.tree.length" class="flex-center flex-1">
+    <div v-else-if="!store.tree.length" class="flex-center flex-1" @contextmenu="openWorkspaceContextMenu">
       <n-spin v-if="store.treeLoading" :size="24" />
       <n-empty v-else description="暂无笔记，先新建一篇叭 (^v^)">
         <template #extra>
@@ -259,7 +317,7 @@ function getDefaultNoteName(dir: string): string {
       </n-empty>
     </div>
 
-    <div v-else ref="treeContainerRef" class="flex-1 min-h-0">
+    <div v-else ref="treeContainerRef" class="flex-1 min-h-0" @contextmenu="openWorkspaceContextMenu">
       <n-scrollbar class="h-full">
         <div v-if="!treeOptions.length" class="title-sm text-ink/40 py-10 text-center">
           没有匹配的笔记
@@ -285,7 +343,7 @@ function getDefaultNoteName(dir: string): string {
     <n-dropdown
       trigger="manual"
       placement="bottom-start"
-      :options="noteNodeActions"
+      :options="contextMenuOptions"
       :show="contextMenu.show"
       :x="contextMenu.x"
       :y="contextMenu.y"

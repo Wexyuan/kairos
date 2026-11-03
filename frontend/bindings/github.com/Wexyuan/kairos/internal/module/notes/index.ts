@@ -7,6 +7,7 @@ export {
 };
 
 export type {
+    CreateFolderReq,
     CreateNoteReq,
     DeleteNoteReq,
     NoteNode,

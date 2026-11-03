@@ -74,6 +74,12 @@ export const useNotesStore = defineStore('notes', () => {
     }
   }
 
+  // createFolder creates a new note folder.
+  async function createFolder(path: string): Promise<void> {
+    await NotesService.CreateFolder({ root: root.value, path })
+    await listTree()
+  }
+
   // createNote creates a new markdown note.
   async function createNote(path: string): Promise<void> {
     await NotesService.CreateNote({ root: root.value, path })
@@ -128,6 +134,7 @@ export const useNotesStore = defineStore('notes', () => {
     findNode,
     selectWorkspace,
     listTree,
+    createFolder,
     createNote,
     saveNote,
     readNote,
