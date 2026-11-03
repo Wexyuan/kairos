@@ -128,7 +128,9 @@ if (props.window)
 function handleKeydown(event: KeyboardEvent): void {
   if (event.isComposing || (event.target instanceof HTMLElement && event.target.closest('.n-modal-container')))
     return
-  if (!KEYS_ALLOWED_IN_INPUT.has(event.key) && event.target instanceof HTMLElement && event.target.closest('input, textarea, [contenteditable="true"]'))
+  const isEditable = event.target instanceof HTMLElement && event.target.closest('input, textarea, [contenteditable="true"]') !== null
+  const isInputArrow = event.target instanceof HTMLInputElement && (event.key === 'ArrowDown' || event.key === 'ArrowUp')
+  if (isEditable && !isInputArrow && !KEYS_ALLOWED_IN_INPUT.has(event.key))
     return
   const handler = KEY_HANDLERS[event.key]
   if (!handler)
