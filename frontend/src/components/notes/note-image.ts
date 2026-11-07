@@ -1,5 +1,6 @@
 const MAX_NOTE_IMAGE_SIZE = 10 << 20
 const MAX_PREVIEW_CACHE_SIZE = 20
+const MAX_PREVIEW_CACHE_BYTES = 32 << 20
 
 interface NoteImageContext {
   root: string
@@ -21,8 +22,11 @@ async function fileToBase64(file: File): Promise<string> {
   if (file.size > MAX_NOTE_IMAGE_SIZE)
     throw new Error('图片大小不能超过 10 MiB')
   const bytes = new Uint8Array(await file.arrayBuffer())
-  // decode bytes as latin1 so btoa accepts the full 0-255 range in one pass.
-  return btoa(new TextDecoder('latin1').decode(bytes))
+  let binary = ''
+  const chunkSize = 0x8000
+  for (let offset = 0; offset < bytes.length; offset += chunkSize)
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize))
+  return btoa(binary)
 }
 
 function isLocalImageSource(source: string): boolean {
@@ -35,8 +39,10 @@ function isLocalImageSource(source: string): boolean {
 export function createNoteImageController(options: NoteImageControllerOptions) {
   const pendingUploads = new Set<Promise<unknown>>()
   const previewCache = new Map<string, Promise<string>>()
+  const previewSizes = new Map<string, number>()
   const reportedLoadErrors = new Set<string>()
   const reportedPreviewErrors = new Set<string>()
+  let previewBytes = 0
 
   function onUpload(file: File): Promise<string> {
     const { root, notePath } = options.getContext()
@@ -66,29 +72,54 @@ export function createNoteImageController(options: NoteImageControllerOptions) {
 
     const { root, notePath } = options.getContext()
     const key = JSON.stringify([root, notePath, source])
-    let preview = previewCache.get(key)
-    if (!preview) {
-      preview = (async () => {
-        if (!root || !notePath)
-          throw new Error('请先选择工作区和笔记后再加载图片')
-        return await options.readNoteImage(root, notePath, source)
-      })().catch((error) => {
-        previewCache.delete(key)
-        if (!reportedPreviewErrors.has(key)) {
-          reportedPreviewErrors.add(key)
-          options.reportError(`图片加载失败：${toErrorMessage(error)}`)
-        }
-        throw error
-      })
-      previewCache.set(key, preview)
-      while (previewCache.size > MAX_PREVIEW_CACHE_SIZE) {
-        const oldest = previewCache.keys().next().value
-        if (oldest === undefined)
-          break
-        previewCache.delete(oldest)
-      }
+    const cached = previewCache.get(key)
+    if (cached) {
+      // refresh recency for LRU behavior.
+      previewCache.delete(key)
+      previewCache.set(key, cached)
+      return cached
     }
+
+    const preview = (async () => {
+      if (!root || !notePath)
+        throw new Error('请先选择工作区和笔记后再加载图片')
+      return await options.readNoteImage(root, notePath, source)
+    })().catch((error) => {
+      dropPreview(key)
+      if (!reportedPreviewErrors.has(key)) {
+        reportedPreviewErrors.add(key)
+        options.reportError(`图片加载失败：${toErrorMessage(error)}`)
+      }
+      throw error
+    })
+    previewCache.set(key, preview)
+    preview.then((url) => {
+      if (previewCache.get(key) !== preview)
+        return
+      previewSizes.set(key, url.length)
+      previewBytes += url.length
+      trimPreviewCache()
+    }, () => {})
+    trimPreviewCache()
     return preview
+  }
+
+  function dropPreview(key: string): void {
+    previewCache.delete(key)
+    const size = previewSizes.get(key)
+    if (size === undefined)
+      return
+    previewBytes -= size
+    previewSizes.delete(key)
+  }
+
+  function trimPreviewCache(): void {
+    while (previewCache.size > MAX_PREVIEW_CACHE_SIZE || previewBytes > MAX_PREVIEW_CACHE_BYTES) {
+      const oldest = previewCache.keys().next().value
+      if (oldest === undefined)
+        break
+      dropPreview(oldest)
+    }
   }
 
   function onImageLoadError(event: Event): void {
@@ -113,6 +144,8 @@ export function createNoteImageController(options: NoteImageControllerOptions) {
 
   function clearCache(): void {
     previewCache.clear()
+    previewSizes.clear()
+    previewBytes = 0
     reportedLoadErrors.clear()
     reportedPreviewErrors.clear()
   }

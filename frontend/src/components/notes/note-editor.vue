@@ -29,7 +29,6 @@ let loadedRoot = '' // workspace root of the currently loaded note
 let loadedPath = '' // path of the currently loaded note
 let currentMarkdown = '' // current markdown content
 let lastSavedMarkdown = '' // markdown of the last successful load or save
-let replacing = false // whether the editor is replacing existing content
 let saveTimer: ReturnType<typeof setTimeout> | undefined // autosave timer
 let saveTask: Promise<boolean> | null = null // in-flight save task
 let noteSwitchRequest = 0 // only the latest note switch may replace editor content
@@ -109,10 +108,14 @@ onBeforeUnmount(() => {
   noteImageController.clearCache()
   const instance = crepe
   // keep the instance alive until the final save finishes, then destroy it.
-  const timeout = new Promise<void>(resolve => setTimeout(resolve, 3000))
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<void>((resolve) => {
+    timeoutId = setTimeout(resolve, 3000)
+  })
   void Promise.race([flushEditor(), timeout])
     .catch(() => {})
     .finally(() => {
+      clearTimeout(timeoutId)
       crepe = null
       void instance?.destroy()
     })
@@ -297,8 +300,6 @@ async function createEditor(): Promise<Crepe> {
       const latest = crepe?.getMarkdown() ?? ''
       currentMarkdown = latest
       wordCount.value = countWords(latest)
-      if (replacing)
-        return
       dirty.value = latest !== lastSavedMarkdown
       if (dirty.value)
         scheduleAutosave()
@@ -335,24 +336,29 @@ function createImageUploader() {
 async function handleNoteSwitch(path: string): Promise<void> {
   const request = ++noteSwitchRequest
   clearTimeout(saveTimer)
-  if (!await flushEditor()) {
-    if (loadedPath)
-      store.activePath = loadedPath
-    return
+  try {
+    if (!await flushEditor()) {
+      if (loadedPath)
+        store.activePath = loadedPath
+      return
+    }
+    if (request !== noteSwitchRequest)
+      return
+    noteImageController.clearCache()
+    if (path)
+      await loadNote(path, request)
   }
-  if (request !== noteSwitchRequest)
-    return
-  noteImageController.clearCache()
-  if (path)
-    await loadNote(path, request)
-  else
-    loading.value = false
+  finally {
+    if (request === noteSwitchRequest)
+      loading.value = false
+  }
 }
 
 async function loadNote(path: string, request = noteSwitchRequest): Promise<void> {
   const previousRoot = loadedRoot
   const previousPath = loadedPath
   const previousMarkdown = currentMarkdown
+  const previousLastSaved = lastSavedMarkdown
   const previousWordCount = wordCount.value
   const previousDirty = dirty.value
   loading.value = true
@@ -361,30 +367,24 @@ async function loadNote(path: string, request = noteSwitchRequest): Promise<void
     const content = await store.readNote(path, store.root)
     if (request !== noteSwitchRequest || crepe !== instance || store.activePath !== path)
       return
-    replacing = true
     loadedRoot = store.root
     loadedPath = path
-    currentMarkdown = content
-    lastSavedMarkdown = content
-    wordCount.value = countWords(content)
     instance.editor.action(replaceAll(content, true))
+    lastSavedMarkdown = instance.getMarkdown()
+    currentMarkdown = lastSavedMarkdown
+    wordCount.value = countWords(lastSavedMarkdown)
     dirty.value = false
-    replacing = false
   }
   catch (err) {
-    replacing = false
     loadedRoot = previousRoot
     loadedPath = previousPath
     currentMarkdown = previousMarkdown
+    lastSavedMarkdown = previousLastSaved
     wordCount.value = previousWordCount
     dirty.value = previousDirty
     if (request === noteSwitchRequest && store.activePath !== previousPath)
       store.activePath = previousPath
     message.error(`加载笔记失败：${err instanceof Error ? err.message : String(err)}`)
-  }
-  finally {
-    if (request === noteSwitchRequest)
-      loading.value = false
   }
 }
 
@@ -413,7 +413,7 @@ function saveNote(): Promise<boolean> {
       if (ok && loadedPath === path) {
         currentMarkdown = content
         lastSavedMarkdown = content
-        dirty.value = crepe?.getMarkdown() !== content
+        dirty.value = crepe ? crepe.getMarkdown() !== content : false
         if (dirty.value)
           scheduleAutosave()
       }
@@ -489,7 +489,7 @@ function ensureEditor(): Promise<Crepe> {
           <span class="rounded-full h-1.5 w-1.5" :class="statusDotClass" />
           {{ saveStatus }}
         </span>
-        <n-button quaternary size="small" class="icon-btn shrink-0" title="保存（Ctrl+S）" :disabled="!dirty" @click="flushEditor">
+        <n-button quaternary size="small" class="icon-btn shrink-0" title="保存（Ctrl+S）" :disabled="saving" @click="flushEditor">
           <template #icon>
             <span class="i-mdi-content-save-outline h-4 w-4" />
           </template>

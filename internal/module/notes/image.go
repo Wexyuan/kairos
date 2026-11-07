@@ -200,21 +200,6 @@ func isPathWithinRoot(root, target string) bool {
 
 // writeNoteImage writes a note image without overwriting different content.
 func writeNoteImage(path string, data []byte) error {
-	if _, statErr := os.Stat(path); statErr == nil {
-		existing, readErr := readNoteImage(path)
-		if readErr != nil {
-			return fmt.Errorf("[notes] read existing note image %s error: %w", path, readErr)
-		}
-		if bytes.Equal(existing, data) {
-			return nil
-		}
-		if err := os.Remove(path); err != nil {
-			return fmt.Errorf("[notes] remove corrupt note image %s error: %w", path, err)
-		}
-	} else if !os.IsNotExist(statErr) {
-		return fmt.Errorf("[notes] stat note image %s error: %w", path, statErr)
-	}
-
 	file, err := os.CreateTemp(filepath.Dir(path), ".image-*")
 	if err != nil {
 		return fmt.Errorf("[notes] create temporary note image error: %w", err)
@@ -230,11 +215,18 @@ func writeNoteImage(path string, data []byte) error {
 	if _, err := file.Write(data); err != nil {
 		return fmt.Errorf("[notes] write note image %s error: %w", path, err)
 	}
+	if err := file.Sync(); err != nil {
+		return fmt.Errorf("[notes] sync note image %s error: %w", path, err)
+	}
 	if err := file.Close(); err != nil {
 		return fmt.Errorf("[notes] close note image %s error: %w", path, err)
 	}
 	if err := os.Chmod(tmpPath, 0o644); err != nil {
 		return fmt.Errorf("[notes] chmod note image %s error: %w", path, err)
+	}
+
+	if existing, readErr := readNoteImage(path); readErr == nil && bytes.Equal(existing, data) {
+		return nil
 	}
 	if err := os.Rename(tmpPath, path); err != nil {
 		return fmt.Errorf("[notes] replace note image %s error: %w", path, err)
