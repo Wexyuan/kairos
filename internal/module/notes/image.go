@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -122,8 +121,8 @@ func resolveImageNote(root, notePath string) (string, error) {
 	if !info.IsDir() {
 		return "", fmt.Errorf("[notes] workspace root path %s is not a directory", root)
 	}
-	if err := validateLocalRelativePath(notePath); err != nil {
-		return "", fmt.Errorf("[notes] invalid note path: %w", err)
+	if strings.TrimSpace(notePath) == "" {
+		return "", fmt.Errorf("[notes] note path is empty")
 	}
 	abs, err := resolveSafe(root, notePath)
 	if err != nil {
@@ -201,26 +200,31 @@ func isPathWithinRoot(root, target string) bool {
 
 // writeNoteImage writes a note image without overwriting different content.
 func writeNoteImage(path string, data []byte) error {
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
-	if errors.Is(err, os.ErrExist) {
+	if _, statErr := os.Stat(path); statErr == nil {
 		existing, readErr := readNoteImage(path)
 		if readErr != nil {
 			return fmt.Errorf("[notes] read existing note image %s error: %w", path, readErr)
 		}
-		if !bytes.Equal(existing, data) {
-			return fmt.Errorf("[notes] note image path already contains different content: %s", path)
+		if bytes.Equal(existing, data) {
+			return nil
 		}
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("[notes] write note image %s error: %w", path, err)
+		if err := os.Remove(path); err != nil {
+			return fmt.Errorf("[notes] remove corrupt note image %s error: %w", path, err)
+		}
+	} else if !os.IsNotExist(statErr) {
+		return fmt.Errorf("[notes] stat note image %s error: %w", path, statErr)
 	}
 
+	file, err := os.CreateTemp(filepath.Dir(path), ".image-*")
+	if err != nil {
+		return fmt.Errorf("[notes] create temporary note image error: %w", err)
+	}
+	tmpPath := file.Name()
 	complete := false
 	defer func() {
 		_ = file.Close()
 		if !complete {
-			_ = os.Remove(path)
+			_ = os.Remove(tmpPath)
 		}
 	}()
 	if _, err := file.Write(data); err != nil {
@@ -228,6 +232,12 @@ func writeNoteImage(path string, data []byte) error {
 	}
 	if err := file.Close(); err != nil {
 		return fmt.Errorf("[notes] close note image %s error: %w", path, err)
+	}
+	if err := os.Chmod(tmpPath, 0o644); err != nil {
+		return fmt.Errorf("[notes] chmod note image %s error: %w", path, err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		return fmt.Errorf("[notes] replace note image %s error: %w", path, err)
 	}
 	complete = true
 	return nil

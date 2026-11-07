@@ -1,4 +1,5 @@
 const MAX_NOTE_IMAGE_SIZE = 10 << 20
+const MAX_PREVIEW_CACHE_SIZE = 20
 
 interface NoteImageContext {
   root: string
@@ -20,20 +21,12 @@ async function fileToBase64(file: File): Promise<string> {
   if (file.size > MAX_NOTE_IMAGE_SIZE)
     throw new Error('图片大小不能超过 10 MiB')
   const bytes = new Uint8Array(await file.arrayBuffer())
-  const chunks: string[] = []
-  const chunkSize = 0x8000
-  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
-    const chunk = bytes.subarray(offset, offset + chunkSize)
-    let binary = ''
-    for (let index = 0; index < chunk.length; index++)
-      binary += String.fromCharCode(chunk[index]!)
-    chunks.push(binary)
-  }
-  return btoa(chunks.join(''))
+  // decode bytes as latin1 so btoa accepts the full 0-255 range in one pass.
+  return btoa(new TextDecoder('latin1').decode(bytes))
 }
 
 function isLocalImageSource(source: string): boolean {
-  if (!source.trim() || source.startsWith('/') || source.startsWith('\\\\'))
+  if (!source.trim() || source.startsWith('/') || source.startsWith('\\'))
     return false
   return !/^(?:[a-z][a-z\d+.-]*:|\/\/)/i.test(source)
 }
@@ -88,6 +81,12 @@ export function createNoteImageController(options: NoteImageControllerOptions) {
         throw error
       })
       previewCache.set(key, preview)
+      while (previewCache.size > MAX_PREVIEW_CACHE_SIZE) {
+        const oldest = previewCache.keys().next().value
+        if (oldest === undefined)
+          break
+        previewCache.delete(oldest)
+      }
     }
     return preview
   }

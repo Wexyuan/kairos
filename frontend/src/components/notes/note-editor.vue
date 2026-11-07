@@ -28,6 +28,7 @@ let editorReady: Promise<Crepe> | null = null // guards against concurrent creat
 let loadedRoot = '' // workspace root of the currently loaded note
 let loadedPath = '' // path of the currently loaded note
 let currentMarkdown = '' // current markdown content
+let lastSavedMarkdown = '' // markdown of the last successful load or save
 let replacing = false // whether the editor is replacing existing content
 let saveTimer: ReturnType<typeof setTimeout> | undefined // autosave timer
 let saveTask: Promise<boolean> | null = null // in-flight save task
@@ -107,10 +108,14 @@ onBeforeUnmount(() => {
   noteSwitchRequest++
   noteImageController.clearCache()
   const instance = crepe
-  crepe = null
-  void flushEditor().finally(() => {
-    void instance?.destroy()
-  })
+  // keep the instance alive until the final save finishes, then destroy it.
+  const timeout = new Promise<void>(resolve => setTimeout(resolve, 3000))
+  void Promise.race([flushEditor(), timeout])
+    .catch(() => {})
+    .finally(() => {
+      crepe = null
+      void instance?.destroy()
+    })
 })
 
 watch(() => store.activePath, (path) => {
@@ -139,8 +144,10 @@ function handleImagePaste(event: ClipboardEvent): void {
     return
   if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)
     return
+  if (target.closest('.cm-editor'))
+    return
 
-  const html = clipboard?.getData('text/html') ?? ''
+  const html = stripHtmlImages(clipboard?.getData('text/html') ?? '')
   const text = clipboard?.getData('text/plain') ?? ''
 
   let imageEvent: ClipboardEvent
@@ -154,6 +161,11 @@ function handleImagePaste(event: ClipboardEvent): void {
       cancelable: true,
       clipboardData: imageData,
     })
+    // clipboardData cannot be set on every platform; warn instead of dropping silently.
+    if (!imageEvent.clipboardData || imageEvent.clipboardData.files.length === 0) {
+      message.warning('当前环境下不支持粘贴图片，请使用上传图片按钮')
+      return
+    }
 
     if (html.trim() || text.trim()) {
       const textData = new DataTransfer()
@@ -281,13 +293,15 @@ async function createEditor(): Promise<Crepe> {
     }))
   })
   instance.on((api) => {
-    api.markdownUpdated((_ctx, markdown) => {
-      currentMarkdown = markdown
-      wordCount.value = countWords(markdown)
+    api.markdownUpdated(() => {
+      const latest = crepe?.getMarkdown() ?? ''
+      currentMarkdown = latest
+      wordCount.value = countWords(latest)
       if (replacing)
         return
-      dirty.value = true
-      scheduleAutosave()
+      dirty.value = latest !== lastSavedMarkdown
+      if (dirty.value)
+        scheduleAutosave()
     })
   })
   await instance.create()
@@ -331,6 +345,8 @@ async function handleNoteSwitch(path: string): Promise<void> {
   noteImageController.clearCache()
   if (path)
     await loadNote(path, request)
+  else
+    loading.value = false
 }
 
 async function loadNote(path: string, request = noteSwitchRequest): Promise<void> {
@@ -349,11 +365,14 @@ async function loadNote(path: string, request = noteSwitchRequest): Promise<void
     loadedRoot = store.root
     loadedPath = path
     currentMarkdown = content
+    lastSavedMarkdown = content
     wordCount.value = countWords(content)
     instance.editor.action(replaceAll(content, true))
     dirty.value = false
+    replacing = false
   }
   catch (err) {
+    replacing = false
     loadedRoot = previousRoot
     loadedPath = previousPath
     currentMarkdown = previousMarkdown
@@ -364,10 +383,8 @@ async function loadNote(path: string, request = noteSwitchRequest): Promise<void
     message.error(`加载笔记失败：${err instanceof Error ? err.message : String(err)}`)
   }
   finally {
-    if (request === noteSwitchRequest) {
-      replacing = false
+    if (request === noteSwitchRequest)
       loading.value = false
-    }
   }
 }
 
@@ -380,16 +397,26 @@ function countWords(markdown: string): number {
 function saveNote(): Promise<boolean> {
   if (saveTask)
     return saveTask
-  if (!loadedPath || !dirty.value)
+  if (!loadedPath || !crepe)
     return Promise.resolve(true)
   const path = loadedPath
-  const content = currentMarkdown
+  const content = crepe.getMarkdown()
+  if (content === lastSavedMarkdown) {
+    currentMarkdown = content
+    dirty.value = false
+    return Promise.resolve(true)
+  }
   saveTask = (async () => {
     saving.value = true
     try {
       const ok = await runAction('保存', () => store.saveNote(path, content, loadedRoot))
-      if (ok && loadedPath === path && currentMarkdown === content)
-        dirty.value = false
+      if (ok && loadedPath === path) {
+        currentMarkdown = content
+        lastSavedMarkdown = content
+        dirty.value = crepe?.getMarkdown() !== content
+        if (dirty.value)
+          scheduleAutosave()
+      }
       return ok
     }
     finally {
@@ -426,6 +453,14 @@ async function flushEditor(): Promise<boolean> {
 
 function isNoteImageFile(file: File): boolean {
   return file.type.startsWith('image/') || NOTE_IMAGE_EXTENSION.test(file.name)
+}
+
+function stripHtmlImages(html: string): string {
+  if (!html)
+    return ''
+  const parsed = new DOMParser().parseFromString(html, 'text/html')
+  parsed.querySelectorAll('img').forEach(image => image.remove())
+  return parsed.body.innerHTML
 }
 
 function ensureEditor(): Promise<Crepe> {
