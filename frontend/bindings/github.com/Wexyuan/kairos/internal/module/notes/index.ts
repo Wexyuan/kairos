@@ -11,7 +11,11 @@ export type {
     CreateNoteReq,
     DeleteNoteReq,
     NoteNode,
+    ReadNoteImageReq,
+    ReadNoteImageResp,
     ReadNoteReq,
     RenameNoteReq,
+    SaveNoteImageReq,
+    SaveNoteImageResp,
     SaveNoteReq
 } from "./models.js";

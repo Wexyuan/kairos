@@ -26,10 +26,35 @@ type SaveNoteReq struct {
 	Content string `json:"content"` // markdown content
 }
 
+// SaveNoteImageReq is the save note image request.
+type SaveNoteImageReq struct {
+	Root     string `json:"root"`      // absolute workspace root path
+	NotePath string `json:"note_path"` // note path relative to root
+	Data     string `json:"data"`      // base64-encoded original image bytes
+}
+
+// SaveNoteImageResp is the save note image response.
+type SaveNoteImageResp struct {
+	Path string `json:"path"` // image path relative to the note directory
+}
+
 // ReadNoteReq is the read note request.
 type ReadNoteReq struct {
 	Root string `json:"root"` // absolute workspace root path
 	Path string `json:"path"` // note path relative to root
+}
+
+// ReadNoteImageReq is the read note image request.
+type ReadNoteImageReq struct {
+	Root     string `json:"root"`      // absolute workspace root path
+	NotePath string `json:"note_path"` // note path relative to root
+	Path     string `json:"path"`      // image path relative to the note directory
+}
+
+// ReadNoteImageResp is the read note image response.
+type ReadNoteImageResp struct {
+	MIME string `json:"mime"` // detected image MIME type
+	Data string `json:"data"` // base64-encoded original image bytes
 }
 
 // RenameNoteReq is the rename note request.

@@ -67,6 +67,41 @@ export interface NoteNode {
 }
 
 /**
+ * ReadNoteImageReq is the read note image request.
+ */
+export interface ReadNoteImageReq {
+    /**
+     * absolute workspace root path
+     */
+    "root": string;
+
+    /**
+     * note path relative to root
+     */
+    "note_path": string;
+
+    /**
+     * image path relative to the note directory
+     */
+    "path": string;
+}
+
+/**
+ * ReadNoteImageResp is the read note image response.
+ */
+export interface ReadNoteImageResp {
+    /**
+     * detected image MIME type
+     */
+    "mime": string;
+
+    /**
+     * base64-encoded original image bytes
+     */
+    "data": string;
+}
+
+/**
  * ReadNoteReq is the read note request.
  */
 export interface ReadNoteReq {
@@ -99,6 +134,36 @@ export interface RenameNoteReq {
      * new path relative to root
      */
     "new_path": string;
+}
+
+/**
+ * SaveNoteImageReq is the save note image request.
+ */
+export interface SaveNoteImageReq {
+    /**
+     * absolute workspace root path
+     */
+    "root": string;
+
+    /**
+     * note path relative to root
+     */
+    "note_path": string;
+
+    /**
+     * base64-encoded original image bytes
+     */
+    "data": string;
+}
+
+/**
+ * SaveNoteImageResp is the save note image response.
+ */
+export interface SaveNoteImageResp {
+    /**
+     * image path relative to the note directory
+     */
+    "path": string;
 }
 
 /**

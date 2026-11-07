@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import type { Node as ProseMirrorNode, Schema } from '@milkdown/kit/prose/model'
 import { Crepe } from '@milkdown/crepe'
-import { replaceAll } from '@milkdown/kit/utils'
+import { uploadConfig } from '@milkdown/kit/plugin/upload'
+import { $remark, replaceAll } from '@milkdown/kit/utils'
 import { basename } from 'pathe'
 import { useAction } from '@/composables'
 import { useNotesStore } from '@/stores/notes'
+import { createNoteImageController } from './note-image'
 import '@milkdown/crepe/theme/common/style.css'
 import '@milkdown/crepe/theme/classic.css'
 
@@ -11,6 +14,7 @@ const store = useNotesStore()
 const { runAction } = useAction()
 const message = useMessage()
 
+const NOTE_IMAGE_EXTENSION = /\.(?:png|jpe?g|gif|webp)$/i
 const AUTOSAVE_DELAY = 800
 
 const editorRef = ref<HTMLElement | null>(null)
@@ -21,11 +25,13 @@ const wordCount = ref(0)
 
 let crepe: Crepe | null = null // editor instance
 let editorReady: Promise<Crepe> | null = null // guards against concurrent creation
+let loadedRoot = '' // workspace root of the currently loaded note
 let loadedPath = '' // path of the currently loaded note
 let currentMarkdown = '' // current markdown content
 let replacing = false // whether the editor is replacing existing content
 let saveTimer: ReturnType<typeof setTimeout> | undefined // autosave timer
 let saveTask: Promise<boolean> | null = null // in-flight save task
+let noteSwitchRequest = 0 // only the latest note switch may replace editor content
 
 const noteTitle = computed(() => {
   const name = basename(store.activePath)
@@ -48,24 +54,68 @@ const statusDotClass = computed(() => {
   return dirty.value ? 'bg-[#aa6622]' : 'bg-[#227755]'
 })
 
+const normalizeNoteImages = $remark('normalize-note-images', () => () => (tree) => {
+  const stack = [tree as NoteImageMarkdownNode]
+  while (stack.length > 0) {
+    const node = stack.pop()
+    if (!node)
+      continue
+    if (node.type === 'image' || node.type === 'image-block') {
+      node.title ??= ''
+      node.alt ??= ''
+    }
+    if (node.children)
+      stack.push(...node.children)
+  }
+})
+
+const imagePasteHandled = Symbol('note-image-paste')
+
+interface NoteImagePasteEvent extends ClipboardEvent {
+  [imagePasteHandled]?: boolean
+}
+
+interface NoteImageMarkdownNode {
+  type?: string
+  title?: string | null
+  alt?: string | null
+  children?: NoteImageMarkdownNode[]
+}
+
+const noteImageController = createNoteImageController({
+  getContext: () => ({ root: loadedRoot, notePath: loadedPath }),
+  saveNoteImage: (root, notePath, data) => store.saveNoteImage(root, notePath, data),
+  readNoteImage: (root, notePath, path) => store.readNoteImage(root, notePath, path),
+  reportError: (error) => {
+    message.error(error)
+  },
+})
+
 onMounted(() => {
   store.registerEditorFlush(flushEditor)
   window.addEventListener('keydown', handleKeydown)
+  editorRef.value?.addEventListener('paste', handleImagePaste, true)
   if (store.activePath)
-    void loadNote(store.activePath)
+    void handleNoteSwitch(store.activePath)
 })
 
 onBeforeUnmount(() => {
   store.registerEditorFlush(null)
   window.removeEventListener('keydown', handleKeydown)
+  editorRef.value?.removeEventListener('paste', handleImagePaste, true)
   clearTimeout(saveTimer)
-  void saveNote()
+  noteSwitchRequest++
+  noteImageController.clearCache()
   const instance = crepe
   crepe = null
-  void instance?.destroy()
+  void flushEditor().finally(() => {
+    void instance?.destroy()
+  })
 })
 
 watch(() => store.activePath, (path) => {
+  if (path === loadedPath)
+    return
   void handleNoteSwitch(path)
 })
 
@@ -74,6 +124,60 @@ function handleKeydown(e: KeyboardEvent): void {
     e.preventDefault()
     void flushEditor()
   }
+}
+
+function handleImagePaste(event: ClipboardEvent): void {
+  const pasteEvent = event as NoteImagePasteEvent
+  if (pasteEvent[imagePasteHandled])
+    return
+  const clipboard = event.clipboardData
+  const files = [...(clipboard?.files ?? [])].filter(isNoteImageFile)
+  if (files.length === 0)
+    return
+  const target = event.target
+  if (!(target instanceof Element) || !target.closest('.ProseMirror'))
+    return
+  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)
+    return
+
+  const html = clipboard?.getData('text/html') ?? ''
+  const text = clipboard?.getData('text/plain') ?? ''
+
+  let imageEvent: ClipboardEvent
+  let textEvent: ClipboardEvent | null = null
+  try {
+    const imageData = new DataTransfer()
+    for (const file of files)
+      imageData.items.add(file)
+    imageEvent = new ClipboardEvent('paste', {
+      bubbles: true,
+      cancelable: true,
+      clipboardData: imageData,
+    })
+
+    if (html.trim() || text.trim()) {
+      const textData = new DataTransfer()
+      if (html)
+        textData.setData('text/html', html)
+      textData.setData('text/plain', text)
+      textEvent = new ClipboardEvent('paste', {
+        bubbles: true,
+        cancelable: true,
+        clipboardData: textData,
+      })
+    }
+  }
+  catch {
+    return
+  }
+
+  event.preventDefault()
+  event.stopPropagation()
+  const nextImageEvent = imageEvent as NoteImagePasteEvent
+  nextImageEvent[imagePasteHandled] = true
+  if (textEvent)
+    target.dispatchEvent(textEvent)
+  target.dispatchEvent(nextImageEvent)
 }
 
 async function selectWorkspace(): Promise<void> {
@@ -101,6 +205,42 @@ async function createEditor(): Promise<Crepe> {
           { label: '标题 5', level: 5 },
           { label: '标题 6', level: 6 },
         ],
+        buildTopBar: (builder) => {
+          const groups = builder.build()
+          const groupByKey = new Map(groups.map(group => [group.key, group]))
+          const textGroup = groupByKey.get('heading')
+          const listGroup = groupByKey.get('list')
+          const advancedGroup = groupByKey.get('insert')
+          if (!textGroup || !listGroup || !advancedGroup)
+            return
+
+          textGroup.label = '文本'
+          listGroup.label = '列表'
+          advancedGroup.label = '高级'
+
+          const formattingGroup = groupByKey.get('formatting')
+          const quoteGroup = groupByKey.get('more')
+          const blockGroup = groupByKey.get('block')
+          if (formattingGroup)
+            textGroup.items.push(...formattingGroup.items)
+          if (quoteGroup)
+            textGroup.items.push(...quoteGroup.items)
+          if (blockGroup)
+            advancedGroup.items.push(...blockGroup.items)
+
+          const linkIndex = advancedGroup.items.findIndex(item => item.key === 'link')
+          if (linkIndex >= 0)
+            textGroup.items.push(...advancedGroup.items.splice(linkIndex, 1))
+
+          const advancedOrder = ['image', 'code-block', 'table', 'math']
+          const orderOf = (key: string) => {
+            const index = advancedOrder.indexOf(key)
+            return index < 0 ? advancedOrder.length : index
+          }
+          advancedGroup.items.sort((a, b) => orderOf(a.key) - orderOf(b.key))
+
+          groups.splice(0, groups.length, textGroup, listGroup, advancedGroup)
+        },
       },
       [Crepe.Feature.Placeholder]: { text: '开始书写…', mode: 'doc' },
       [Crepe.Feature.BlockEdit]: {
@@ -130,7 +270,15 @@ async function createEditor(): Promise<Crepe> {
           math: { label: '公式' },
         },
       },
+      [Crepe.Feature.ImageBlock]: noteImageController.config,
     },
+  })
+  instance.editor.use(normalizeNoteImages)
+  instance.editor.config((ctx) => {
+    ctx.update(uploadConfig.key, prev => ({
+      ...prev,
+      uploader: createImageUploader(),
+    }))
   })
   instance.on((api) => {
     api.markdownUpdated((_ctx, markdown) => {
@@ -147,36 +295,79 @@ async function createEditor(): Promise<Crepe> {
   return instance
 }
 
-async function handleNoteSwitch(path: string): Promise<void> {
-  clearTimeout(saveTimer)
-  if (loadedPath && dirty.value)
-    await saveNote()
-  if (path)
-    await loadNote(path)
+function createImageUploader() {
+  return async (files: FileList, schema: Schema): Promise<ProseMirrorNode[]> => {
+    const nodeType = schema.nodes['image-block'] ?? schema.nodes.image
+    if (!nodeType)
+      return []
+    const nodes: ProseMirrorNode[] = []
+    for (const file of Array.from(files)) {
+      if (!isNoteImageFile(file))
+        continue
+      try {
+        const src = await noteImageController.config.onUpload(file)
+        const node = nodeType.createAndFill({ src })
+        if (node)
+          nodes.push(node)
+      }
+      catch {
+        // onUpload already reported the failure; skip the file and clear its placeholder.
+      }
+    }
+    return nodes
+  }
 }
 
-async function loadNote(path: string): Promise<void> {
+async function handleNoteSwitch(path: string): Promise<void> {
+  const request = ++noteSwitchRequest
+  clearTimeout(saveTimer)
+  if (!await flushEditor()) {
+    if (loadedPath)
+      store.activePath = loadedPath
+    return
+  }
+  if (request !== noteSwitchRequest)
+    return
+  noteImageController.clearCache()
+  if (path)
+    await loadNote(path, request)
+}
+
+async function loadNote(path: string, request = noteSwitchRequest): Promise<void> {
+  const previousRoot = loadedRoot
+  const previousPath = loadedPath
+  const previousMarkdown = currentMarkdown
+  const previousWordCount = wordCount.value
+  const previousDirty = dirty.value
   loading.value = true
   try {
-    try {
-      const instance = await ensureEditor()
-      const content = await store.readNote(path)
-      if (crepe !== instance || store.activePath !== path)
-        return
-      replacing = true
-      currentMarkdown = content
-      wordCount.value = countWords(content)
-      instance.editor.action(replaceAll(content))
-      loadedPath = path
-      dirty.value = false
-    }
-    catch (err) {
-      message.error(`加载笔记失败：${err instanceof Error ? err.message : String(err)}`)
-    }
+    const instance = await ensureEditor()
+    const content = await store.readNote(path, store.root)
+    if (request !== noteSwitchRequest || crepe !== instance || store.activePath !== path)
+      return
+    replacing = true
+    loadedRoot = store.root
+    loadedPath = path
+    currentMarkdown = content
+    wordCount.value = countWords(content)
+    instance.editor.action(replaceAll(content, true))
+    dirty.value = false
+  }
+  catch (err) {
+    loadedRoot = previousRoot
+    loadedPath = previousPath
+    currentMarkdown = previousMarkdown
+    wordCount.value = previousWordCount
+    dirty.value = previousDirty
+    if (request === noteSwitchRequest && store.activePath !== previousPath)
+      store.activePath = previousPath
+    message.error(`加载笔记失败：${err instanceof Error ? err.message : String(err)}`)
   }
   finally {
-    replacing = false
-    loading.value = false
+    if (request === noteSwitchRequest) {
+      replacing = false
+      loading.value = false
+    }
   }
 }
 
@@ -191,11 +382,13 @@ function saveNote(): Promise<boolean> {
     return saveTask
   if (!loadedPath || !dirty.value)
     return Promise.resolve(true)
+  const path = loadedPath
+  const content = currentMarkdown
   saveTask = (async () => {
     saving.value = true
     try {
-      const ok = await runAction('保存', () => store.saveNote(loadedPath, currentMarkdown))
-      if (ok)
+      const ok = await runAction('保存', () => store.saveNote(path, content, loadedRoot))
+      if (ok && loadedPath === path && currentMarkdown === content)
         dirty.value = false
       return ok
     }
@@ -209,12 +402,30 @@ function saveNote(): Promise<boolean> {
 
 function scheduleAutosave(): void {
   clearTimeout(saveTimer)
-  saveTimer = setTimeout(() => void saveNote(), AUTOSAVE_DELAY)
+  saveTimer = setTimeout(() => void runAutosave(), AUTOSAVE_DELAY)
+}
+
+async function runAutosave(): Promise<void> {
+  if (saveTask)
+    await saveTask
+  await saveNote()
 }
 
 async function flushEditor(): Promise<boolean> {
   clearTimeout(saveTimer)
-  return await saveNote()
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await noteImageController.waitForUploads()
+    const saved = await saveNote()
+    if (!saved)
+      return false
+    if (!noteImageController.hasPendingUploads() && !dirty.value)
+      return true
+  }
+  return false
+}
+
+function isNoteImageFile(file: File): boolean {
+  return file.type.startsWith('image/') || NOTE_IMAGE_EXTENSION.test(file.name)
 }
 
 function ensureEditor(): Promise<Crepe> {

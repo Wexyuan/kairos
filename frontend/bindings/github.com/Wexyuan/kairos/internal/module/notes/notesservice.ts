@@ -50,6 +50,13 @@ export function ReadNote(req: $models.ReadNoteReq | null): $CancellablePromise<s
 }
 
 /**
+ * ReadNoteImage reads a note image.
+ */
+export function ReadNoteImage(req: $models.ReadNoteImageReq | null): $CancellablePromise<$models.ReadNoteImageResp | null> {
+    return $Call.ByID(834495051, req);
+}
+
+/**
  * RenameNote renames a note or directory.
  */
 export function RenameNote(req: $models.RenameNoteReq | null): $CancellablePromise<void> {
@@ -61,6 +68,13 @@ export function RenameNote(req: $models.RenameNoteReq | null): $CancellablePromi
  */
 export function SaveNote(req: $models.SaveNoteReq | null): $CancellablePromise<void> {
     return $Call.ByID(1533461263, req);
+}
+
+/**
+ * SaveNoteImage saves a note image.
+ */
+export function SaveNoteImage(req: $models.SaveNoteImageReq | null): $CancellablePromise<$models.SaveNoteImageResp | null> {
+    return $Call.ByID(325584500, req);
 }
 
 /**

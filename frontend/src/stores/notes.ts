@@ -88,13 +88,29 @@ export const useNotesStore = defineStore('notes', () => {
   }
 
   // saveNote saves the markdown content of a note.
-  async function saveNote(path: string, content: string): Promise<void> {
-    await NotesService.SaveNote({ root: root.value, path, content })
+  async function saveNote(path: string, content: string, targetRoot = root.value): Promise<void> {
+    await NotesService.SaveNote({ root: targetRoot, path, content })
+  }
+
+  // saveNoteImage saves base64 image data and returns its note-relative markdown path.
+  async function saveNoteImage(root: string, notePath: string, data: string): Promise<string> {
+    const response = await NotesService.SaveNoteImage({ root, note_path: notePath, data })
+    if (!response?.path)
+      throw new Error('后端未返回图片路径')
+    return response.path
   }
 
   // readNote reads the markdown content of a note.
-  async function readNote(path: string): Promise<string> {
-    return await NotesService.ReadNote({ root: root.value, path })
+  async function readNote(path: string, targetRoot = root.value): Promise<string> {
+    return await NotesService.ReadNote({ root: targetRoot, path })
+  }
+
+  // readNoteImage reads an image and returns a data URL for preview only.
+  async function readNoteImage(root: string, notePath: string, path: string): Promise<string> {
+    const response = await NotesService.ReadNoteImage({ root, note_path: notePath, path })
+    if (!response)
+      throw new Error('后端未返回图片数据')
+    return `data:${response.mime};base64,${response.data}`
   }
 
   // renameNote renames a note or directory.
@@ -137,7 +153,9 @@ export const useNotesStore = defineStore('notes', () => {
     createFolder,
     createNote,
     saveNote,
+    saveNoteImage,
     readNote,
+    readNoteImage,
     renameNote,
     deleteNote,
   }
