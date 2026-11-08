@@ -63,6 +63,9 @@ func (r *clipboardRepository) DeleteAllClipboardEntries(ctx context.Context) err
 
 // DeleteExcessClipboardEntries deletes the unpinned entries beyond the capacity.
 func (r *clipboardRepository) DeleteExcessClipboardEntries(ctx context.Context, capacity int) error {
+	if capacity <= 0 {
+		return nil
+	}
 	newest := r.DB(ctx).Model(&ClipboardEntry{}).Select("id").Where("pinned_at IS NULL").Order("last_used_at DESC").Limit(capacity)
 	return r.DB(ctx).Where("pinned_at IS NULL").Where("id NOT IN (?)", newest).Delete(&ClipboardEntry{}).Error
 }
