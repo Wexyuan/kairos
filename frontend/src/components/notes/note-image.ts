@@ -1,4 +1,3 @@
-const MAX_NOTE_IMAGE_SIZE = 10 << 20
 const MAX_PREVIEW_CACHE_SIZE = 20
 const MAX_PREVIEW_CACHE_BYTES = 32 << 20
 
@@ -9,6 +8,7 @@ interface NoteImageContext {
 
 interface NoteImageControllerOptions {
   getContext: () => NoteImageContext
+  getNoteMaxImageSize: () => number
   saveNoteImage: (root: string, notePath: string, data: string) => Promise<string>
   readNoteImage: (root: string, notePath: string, path: string) => Promise<string>
   reportError: (message: string) => void
@@ -18,15 +18,20 @@ function toErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
-async function fileToBase64(file: File): Promise<string> {
-  if (file.size > MAX_NOTE_IMAGE_SIZE)
-    throw new Error('图片大小不能超过 10 MiB')
+async function fileToBase64(file: File, maxSize: number): Promise<string> {
+  if (file.size > maxSize)
+    throw new Error(`图片大小不能超过 ${formatSize(maxSize)}`)
   const bytes = new Uint8Array(await file.arrayBuffer())
   let binary = ''
   const chunkSize = 0x8000
   for (let offset = 0; offset < bytes.length; offset += chunkSize)
     binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize))
   return btoa(binary)
+}
+
+function formatSize(bytes: number): string {
+  const mib = bytes / (1 << 20)
+  return `${Number.isInteger(mib) ? mib : mib.toFixed(1)} MiB`
 }
 
 function isLocalImageSource(source: string): boolean {
@@ -50,7 +55,7 @@ export function createNoteImageController(options: NoteImageControllerOptions) {
       try {
         if (!root || !notePath)
           throw new Error('请先选择工作区和笔记后再上传图片')
-        return await options.saveNoteImage(root, notePath, await fileToBase64(file))
+        return await options.saveNoteImage(root, notePath, await fileToBase64(file, options.getNoteMaxImageSize()))
       }
       catch (error) {
         options.reportError(`图片上传失败：${toErrorMessage(error)}`)

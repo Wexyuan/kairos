@@ -10,30 +10,32 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/w32"
 
+	"github.com/Wexyuan/kairos/internal/config"
 	"github.com/Wexyuan/kairos/internal/ecode"
 	"github.com/Wexyuan/kairos/internal/module/base"
+	"github.com/Wexyuan/kairos/pkg/errs"
 	"github.com/Wexyuan/kairos/pkg/logger"
 )
 
 const (
-	// maxEntries is the max count of unpinned clipboard entries.
-	maxEntries = 500
-	// maxPinnedEntries is the max count of pinned clipboard entries.
-	maxPinnedEntries = 50
 	// watcherInterval is the interval of the clipboard watcher.
 	watcherInterval = 500 * time.Millisecond
 )
 
 // ClipboardService provides clipboard entry business operations.
 type ClipboardService struct {
-	lg   *logger.Logger
-	repo ClipboardRepository
+	lg               *logger.Logger
+	repo             ClipboardRepository
+	maxEntries       int // max count of unpinned entries
+	maxPinnedEntries int // max count of pinned entries
 }
 
-func NewClipboardService(lg *logger.Logger, repo ClipboardRepository) *ClipboardService {
+func NewClipboardService(cfg *config.Config, lg *logger.Logger, repo ClipboardRepository) *ClipboardService {
 	return &ClipboardService{
-		lg:   lg,
-		repo: repo,
+		lg:               lg,
+		repo:             repo,
+		maxEntries:       cfg.Clipboard.MaxEntries,
+		maxPinnedEntries: cfg.Clipboard.MaxPinnedEntries,
 	}
 }
 
@@ -66,7 +68,7 @@ func (s *ClipboardService) SaveClipboardText(ctx context.Context, content string
 		return fmt.Errorf("[clipboard] create clipboard entry error: %w", err)
 	}
 
-	if err := s.repo.DeleteExcessClipboardEntries(ctx, maxEntries); err != nil {
+	if err := s.repo.DeleteExcessClipboardEntries(ctx, s.maxEntries); err != nil {
 		return fmt.Errorf("[clipboard] delete excess clipboard entries error: %w", err)
 	}
 	return nil
@@ -122,8 +124,8 @@ func (s *ClipboardService) SetClipboardEntryPinned(ctx context.Context, req *Set
 	if err != nil {
 		return fmt.Errorf("[clipboard] count pinned clipboard entries error: %w", err)
 	}
-	if pinned >= maxPinnedEntries {
-		return ecode.ErrClipboardPinLimit
+	if pinned >= int64(s.maxPinnedEntries) {
+		return errs.New(ecode.ErrClipboardPinLimit.Code, fmt.Sprintf("clipboard pinned entries limit reached: %d", s.maxPinnedEntries))
 	}
 	now := time.Now()
 	if err := s.repo.UpdateClipboardEntryPinnedAt(ctx, id, &now); err != nil {

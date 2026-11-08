@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { InputInst } from 'naive-ui'
 import { useAction } from '@/composables'
+import { PAGE_SIZES, SEARCH_DELAY } from '@/stores/app'
 import { useClipboardStore } from '@/stores/clipboard'
 
 const props = withDefaults(defineProps<{
@@ -13,9 +14,6 @@ const emit = defineEmits<{
   copied: [] // emitted after an entry is copied
   escape: [] // emitted when Escape is pressed
 }>()
-
-const PAGE_SIZES = [10, 20, 50, 100]
-const SEARCH_DELAY = 250
 
 const store = useClipboardStore()
 const { runAction, confirmAction } = useAction()

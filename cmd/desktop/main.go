@@ -35,6 +35,7 @@ func main() {
 	if err := config.Load(cfgPath, &cfg); err != nil {
 		log.Fatalf("[main] load config %s error: %v", cfgPath, err)
 	}
+	cfg.SetDefaults()
 
 	// 3. Resolve the writable storage root path.
 	root, err := appconfig.ResolveStorageRoot(cfg.App.Name)

@@ -1,5 +1,6 @@
 import type { NoteNode } from '@/services/bindings'
 import { NotesService } from '@/services/bindings'
+import { STORAGE_KEYS } from '@/stores/app'
 
 // toNoteNodes converts nullable nodes into a non-null note node array.
 export function toNoteNodes(nodes: (NoteNode | null)[] | null): NoteNode[] {
@@ -13,7 +14,7 @@ export function isInside(path: string, target: string): boolean {
 
 // useNotesStore defines a store for managing notes in the workspace.
 export const useNotesStore = defineStore('notes', () => {
-  const root = useLocalStorage('kairos-notes-workspace', '')
+  const root = useLocalStorage(STORAGE_KEYS.notesWorkspace, '')
   const tree = ref<NoteNode[]>([])
   const activePath = ref('')
   const treeLoading = ref(false)

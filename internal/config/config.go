@@ -2,10 +2,12 @@ package config
 
 // Config holds the application configuration.
 type Config struct {
-	App      App      `mapstructure:"app"`      // application settings
-	Logger   Logger   `mapstructure:"logger"`   // logger settings
-	Database Database `mapstructure:"database"` // database settings
-	Cache    Cache    `mapstructure:"cache"`    // cache settings
+	App       App       `mapstructure:"app"`       // application settings
+	Logger    Logger    `mapstructure:"logger"`    // logger settings
+	Database  Database  `mapstructure:"database"`  // database settings
+	Cache     Cache     `mapstructure:"cache"`     // cache settings
+	Notes     Notes     `mapstructure:"notes"`     // notes settings
+	Clipboard Clipboard `mapstructure:"clipboard"` // clipboard settings
 }
 
 // App holds the application settings.
@@ -31,4 +33,16 @@ type Database struct {
 // Cache holds the cache settings.
 type Cache struct {
 	TTL int `mapstructure:"ttl"` // expiration in seconds (default to 300)
+}
+
+// Notes holds the notes settings.
+type Notes struct {
+	MaxImageSize int64 `mapstructure:"max_image_size"` // max note image bytes (default to 10 MiB)
+}
+
+// Clipboard holds the clipboard settings.
+type Clipboard struct {
+	Shortcut         string `mapstructure:"shortcut"`           // global hotkey toggling the clipboard window
+	MaxEntries       int    `mapstructure:"max_entries"`        // max unpinned entries (default to 500)
+	MaxPinnedEntries int    `mapstructure:"max_pinned_entries"` // max pinned entries (default to 50)
 }

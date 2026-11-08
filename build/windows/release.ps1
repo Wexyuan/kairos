@@ -113,6 +113,12 @@ if ($Phase -eq 'sync') {
     Assert-VersionPattern -Path (Join-Path $RootDir 'frontend/package.json') -Expected $Version `
         -Pattern ('"version":\s*"' + [regex]::Escape($Version) + '"') -Optional
 
+    # Fail when the Go build no longer embeds the version, otherwise the in-app version drifts silently.
+    $taskPath = Join-Path $RootDir 'build/windows/Taskfile.yml'
+    if (-not ([IO.File]::ReadAllText($taskPath) -match 'internal/constant\.Version=\{\{\.VERSION')) {
+        throw "Go version injection is missing in $taskPath"
+    }
+
     Write-Host "Version $Version synced into build assets."
     return
 }

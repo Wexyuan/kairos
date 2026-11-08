@@ -14,15 +14,12 @@ import (
 	"strings"
 )
 
-// maxNoteImageSize is the maximum size of a note image in bytes.
-const maxNoteImageSize = 10 << 20
-
 // SaveNoteImage saves a note image.
 func (s *NotesService) SaveNoteImage(ctx context.Context, req *SaveNoteImageReq) (*SaveNoteImageResp, error) {
 	if req == nil {
 		return nil, fmt.Errorf("[notes] save note image request is nil")
 	}
-	noteAbs, err := resolveImageNote(req.Root, req.NotePath)
+	noteAbs, err := resolveNoteImage(req.Root, req.NotePath)
 	if err != nil {
 		return nil, err
 	}
@@ -30,15 +27,15 @@ func (s *NotesService) SaveNoteImage(ctx context.Context, req *SaveNoteImageReq)
 		return nil, fmt.Errorf("[notes] note image data is empty")
 	}
 	// reject oversize base64 before decoding to avoid allocating a huge buffer.
-	if len(req.Data) > base64.StdEncoding.EncodedLen(maxNoteImageSize) {
-		return nil, fmt.Errorf("[notes] note image exceeds %d bytes", maxNoteImageSize)
+	if len(req.Data) > base64.StdEncoding.EncodedLen(int(s.noteMaxImageSize)) {
+		return nil, fmt.Errorf("[notes] note image exceeds %d bytes", s.noteMaxImageSize)
 	}
 	data, err := base64.StdEncoding.DecodeString(req.Data)
 	if err != nil {
 		return nil, fmt.Errorf("[notes] decode note image data error: %w", err)
 	}
-	if len(data) > maxNoteImageSize {
-		return nil, fmt.Errorf("[notes] note image exceeds %d bytes", maxNoteImageSize)
+	if int64(len(data)) > s.noteMaxImageSize {
+		return nil, fmt.Errorf("[notes] note image exceeds %d bytes", s.noteMaxImageSize)
 	}
 	_, ext, err := detectNoteImageFormat(data)
 	if err != nil {
@@ -58,15 +55,15 @@ func (s *NotesService) SaveNoteImage(ctx context.Context, req *SaveNoteImageReq)
 	}
 	hash := fmt.Sprintf("%x", sha256.Sum256(data))
 	name := hash + ext
-	imageAbs := filepath.Join(assetsReal, name)
-	if info, statErr := os.Lstat(imageAbs); statErr == nil && info.Mode()&os.ModeSymlink != 0 {
+	noteImageAbs := filepath.Join(assetsReal, name)
+	if info, statErr := os.Lstat(noteImageAbs); statErr == nil && info.Mode()&os.ModeSymlink != 0 {
 		return nil, fmt.Errorf("[notes] note image path must not be a symbolic link: %s", name)
 	}
-	if err := writeNoteImage(imageAbs, data); err != nil {
+	if err := writeNoteImage(noteImageAbs, data, s.noteMaxImageSize); err != nil {
 		return nil, err
 	}
-	logicalImageAbs := filepath.Join(assetsAbs, name)
-	rel, err := filepath.Rel(filepath.Dir(noteAbs), logicalImageAbs)
+	logicalNoteImageAbs := filepath.Join(assetsAbs, name)
+	rel, err := filepath.Rel(filepath.Dir(noteAbs), logicalNoteImageAbs)
 	if err != nil {
 		return nil, fmt.Errorf("[notes] resolve note image relative path error: %w", err)
 	}
@@ -78,7 +75,7 @@ func (s *NotesService) ReadNoteImage(ctx context.Context, req *ReadNoteImageReq)
 	if req == nil {
 		return nil, fmt.Errorf("[notes] read note image request is nil")
 	}
-	if _, err := resolveImageNote(req.Root, req.NotePath); err != nil {
+	if _, err := resolveNoteImage(req.Root, req.NotePath); err != nil {
 		return nil, err
 	}
 	if err := validateLocalRelativePath(req.Path); err != nil {
@@ -86,16 +83,16 @@ func (s *NotesService) ReadNoteImage(ctx context.Context, req *ReadNoteImageReq)
 	}
 
 	noteRel := filepath.Clean(filepath.FromSlash(req.NotePath))
-	imageRel := filepath.Join(filepath.Dir(noteRel), filepath.FromSlash(req.Path))
-	imageAbs, err := resolveSafe(req.Root, imageRel)
+	noteImageRel := filepath.Join(filepath.Dir(noteRel), filepath.FromSlash(req.Path))
+	noteImageAbs, err := resolveSafe(req.Root, noteImageRel)
 	if err != nil {
 		return nil, err
 	}
-	imageAbs, err = resolveExistingPathWithinRoot(req.Root, imageAbs)
+	noteImageAbs, err = resolveExistingPathWithinRoot(req.Root, noteImageAbs)
 	if err != nil {
 		return nil, err
 	}
-	data, err := readNoteImage(imageAbs)
+	data, err := readNoteImage(noteImageAbs, s.noteMaxImageSize)
 	if err != nil {
 		return nil, fmt.Errorf("[notes] read note image %s error: %w", req.Path, err)
 	}
@@ -109,8 +106,8 @@ func (s *NotesService) ReadNoteImage(ctx context.Context, req *ReadNoteImageReq)
 	}, nil
 }
 
-// resolveImageNote resolves the image note path.
-func resolveImageNote(root, notePath string) (string, error) {
+// resolveNoteImage resolves the note image path.
+func resolveNoteImage(root, notePath string) (string, error) {
 	if strings.TrimSpace(root) == "" {
 		return "", fmt.Errorf("[notes] workspace root path is empty")
 	}
@@ -199,7 +196,7 @@ func isPathWithinRoot(root, target string) bool {
 }
 
 // writeNoteImage writes a note image without overwriting different content.
-func writeNoteImage(path string, data []byte) error {
+func writeNoteImage(path string, data []byte, limit int64) error {
 	file, err := os.CreateTemp(filepath.Dir(path), ".image-*")
 	if err != nil {
 		return fmt.Errorf("[notes] create temporary note image error: %w", err)
@@ -225,7 +222,7 @@ func writeNoteImage(path string, data []byte) error {
 		return fmt.Errorf("[notes] chmod note image %s error: %w", path, err)
 	}
 
-	if existing, readErr := readNoteImage(path); readErr == nil && bytes.Equal(existing, data) {
+	if existing, readErr := readNoteImage(path, limit); readErr == nil && bytes.Equal(existing, data) {
 		return nil
 	}
 	if err := os.Rename(tmpPath, path); err != nil {
@@ -236,19 +233,19 @@ func writeNoteImage(path string, data []byte) error {
 }
 
 // readNoteImage reads a note image within the maximum size limit.
-func readNoteImage(path string) ([]byte, error) {
+func readNoteImage(path string, limit int64) ([]byte, error) {
 	image, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer image.Close()
 
-	data, err := io.ReadAll(io.LimitReader(image, maxNoteImageSize+1))
+	data, err := io.ReadAll(io.LimitReader(image, limit+1))
 	if err != nil {
 		return nil, err
 	}
-	if len(data) > maxNoteImageSize {
-		return nil, fmt.Errorf("note image exceeds %d bytes", maxNoteImageSize)
+	if int64(len(data)) > limit {
+		return nil, fmt.Errorf("note image exceeds %d bytes", limit)
 	}
 	return data, nil
 }

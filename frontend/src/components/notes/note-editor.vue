@@ -5,12 +5,14 @@ import { uploadConfig } from '@milkdown/kit/plugin/upload'
 import { $remark, replaceAll } from '@milkdown/kit/utils'
 import { basename } from 'pathe'
 import { useAction } from '@/composables'
+import { useAppStore } from '@/stores/app'
 import { useNotesStore } from '@/stores/notes'
 import { createNoteImageController } from './note-image'
 import '@milkdown/crepe/theme/common/style.css'
 import '@milkdown/crepe/theme/classic.css'
 
 const store = useNotesStore()
+const appStore = useAppStore()
 const { runAction } = useAction()
 const message = useMessage()
 
@@ -84,6 +86,7 @@ interface NoteImageMarkdownNode {
 
 const noteImageController = createNoteImageController({
   getContext: () => ({ root: loadedRoot, notePath: loadedPath }),
+  getNoteMaxImageSize: () => appStore.noteMaxImageSize,
   saveNoteImage: (root, notePath, data) => store.saveNoteImage(root, notePath, data),
   readNoteImage: (root, notePath, path) => store.readNoteImage(root, notePath, path),
   reportError: (error) => {

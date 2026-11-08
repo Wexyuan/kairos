@@ -26,6 +26,7 @@ tasks:
           EXTRA_TAGS: '{{.EXTRA_TAGS}}'
           OBFUSCATED: '{{.OBFUSCATED}}'
           GARBLE_ARGS: '{{.GARBLE_ARGS}}'
+          VERSION: '{{.VERSION}}'
     vars:
       # Default to CGO_ENABLED=0 if not explicitly set
       CGO_ENABLED: '{{.CGO_ENABLED | default "0"}}'
@@ -58,7 +59,7 @@ tasks:
       - cmd: rm -f cmd/desktop/*.syso
         platforms: [linux, darwin]
     vars:
-      BUILD_FLAGS: '{{if eq .DEV "true"}}{{if or .EXTRA_TAGS (eq .OBFUSCATED "true")}}-tags {{if eq .OBFUSCATED "true"}}wails_obfuscated{{if .EXTRA_TAGS}},{{end}}{{end}}{{.EXTRA_TAGS}} {{end}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production{{if eq .OBFUSCATED "true"}},wails_obfuscated{{end}}{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui"{{end}}'
+      BUILD_FLAGS: '{{if eq .DEV "true"}}{{if or .EXTRA_TAGS (eq .OBFUSCATED "true")}}-tags {{if eq .OBFUSCATED "true"}}wails_obfuscated{{if .EXTRA_TAGS}},{{end}}{{end}}{{.EXTRA_TAGS}} {{end}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production{{if eq .OBFUSCATED "true"}},wails_obfuscated{{end}}{{if .EXTRA_TAGS}},{{.EXTRA_TAGS}}{{end}} -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui -X github.com/Wexyuan/kairos/internal/constant.Version={{.VERSION | default "0.1.0"}}"{{end}}'
     env:
       GOOS: windows
       CGO_ENABLED: '{{.CGO_ENABLED | default "0"}}'
@@ -115,6 +116,7 @@ tasks:
       - task: create:nsis:installer
         vars:
           INSTALL_SCOPE: '{{.INSTALL_SCOPE | default "machine"}}'
+          VERSION: '{{.VERSION}}'
       - powershell -NoProfile -ExecutionPolicy Bypass -File "{{.ROOT_DIR}}/build/windows/release.ps1" -RootDir "{{.ROOT_DIR}}" -AppName "{{.APP_NAME}}" -Arch "{{.ARCH | default ARCH}}" -Version "{{.VERSION}}" -Phase collect
     vars:
       VERSION: '{{.VERSION}}'
@@ -134,6 +136,8 @@ tasks:
     dir: build/windows/nsis
     deps:
       - task: build
+        vars:
+          VERSION: '{{.VERSION}}'
     preconditions:
       - sh: '[ "{{.INSTALL_SCOPE}}" = "user" ] || [ "{{.INSTALL_SCOPE}}" = "machine" ]'
         msg: "INSTALL_SCOPE must be 'user' or 'machine', got '{{.INSTALL_SCOPE}}'"

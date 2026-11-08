@@ -9,13 +9,17 @@ import (
 	"strings"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
+
+	"github.com/Wexyuan/kairos/internal/config"
 )
 
 // NotesService provides note operations within a workspace folder.
-type NotesService struct{}
+type NotesService struct {
+	noteMaxImageSize int64 // max note image bytes
+}
 
-func NewNotesService() *NotesService {
-	return &NotesService{}
+func NewNotesService(cfg *config.Config) *NotesService {
+	return &NotesService{noteMaxImageSize: cfg.Notes.MaxImageSize}
 }
 
 // SelectWorkspace selects a system folder as the workspace.

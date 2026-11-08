@@ -1,5 +1,6 @@
 import type { ClipboardEntryItem } from '@/services/bindings'
 import { ClipboardService } from '@/services/bindings'
+import { DEFAULT_PAGE_SIZE } from '@/stores/app'
 
 // toClipboardEntries converts nullable entries into a non-null clipboard entry array.
 export function toClipboardEntries(entries: (ClipboardEntryItem | null)[] | null | undefined): ClipboardEntryItem[] {
@@ -28,7 +29,7 @@ export const useClipboardStore = defineStore('clipboard', () => {
   const entries = ref<ClipboardEntryItem[]>([])
   const total = ref(0)
   const page = ref(1)
-  const pageSize = ref(20)
+  const pageSize = ref(DEFAULT_PAGE_SIZE)
   const loadedPage = ref(1)
   const keyword = ref('')
   const listLoading = ref(false)

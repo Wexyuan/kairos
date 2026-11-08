@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { useTheme } from '@/composables'
+import { useAppStore } from '@/stores/app'
 
+const appStore = useAppStore()
 const { theme, themeOverrides } = useTheme()
+
+onMounted(() => void appStore.getSettings())
 </script>
 
 <template>

@@ -11,11 +11,11 @@ import (
 
 	"github.com/Wexyuan/kairos"
 	"github.com/Wexyuan/kairos/internal/config"
-	"github.com/Wexyuan/kairos/internal/constant"
 	"github.com/Wexyuan/kairos/internal/module/base"
 	"github.com/Wexyuan/kairos/internal/module/clipboard"
 	"github.com/Wexyuan/kairos/internal/module/desktop"
 	"github.com/Wexyuan/kairos/internal/module/notes"
+	"github.com/Wexyuan/kairos/internal/module/settings"
 	"github.com/Wexyuan/kairos/pkg/logger"
 )
 
@@ -33,6 +33,7 @@ var ModuleProviderSet = wire.NewSet(
 	notes.NewNotesService,
 	clipboard.NewClipboardRepository,
 	clipboard.NewClipboardService,
+	settings.NewSettingsService,
 )
 
 // NewApp creates a new application.
@@ -43,10 +44,12 @@ func NewApp(
 	winSvc *desktop.WindowService,
 	notesSvc *notes.NotesService,
 	clipSvc *clipboard.ClipboardService,
+	settingsSvc *settings.SettingsService,
 ) *application.App {
 	watcherCtx, cancelWatcher := context.WithCancel(context.Background())
 	clipSvc.StartClipboardWatcher(watcherCtx)
 
+	shortcut := cfg.Clipboard.Shortcut
 	var app *application.App
 	app = application.New(
 		application.Options{
@@ -56,14 +59,15 @@ func NewApp(
 			},
 			OnShutdown: func() {
 				cancelWatcher()
-				if err := app.GlobalShortcut.Unregister(constant.ClipboardWindowHotkey); err != nil {
-					lg.Errorf("[wire] unregister hotkey %s error: %v", constant.ClipboardWindowHotkey, err)
+				if err := app.GlobalShortcut.Unregister(shortcut); err != nil {
+					lg.Errorf("[wire] unregister hotkey %s error: %v", shortcut, err)
 				}
 			},
 			Services: []application.Service{
 				application.NewService(winSvc),
 				application.NewService(notesSvc),
 				application.NewService(clipSvc),
+				application.NewService(settingsSvc),
 			},
 			Assets: application.AssetOptions{
 				Handler: application.AssetFileServerFS(kairos.Assets),
@@ -71,10 +75,10 @@ func NewApp(
 		},
 	)
 
-	if err := app.GlobalShortcut.Register(constant.ClipboardWindowHotkey, func() {
+	if err := app.GlobalShortcut.Register(shortcut, func() {
 		_ = winSvc.ToggleClipboardWindow(context.Background())
 	}); err != nil {
-		lg.Errorf("[wire] register hotkey %s error: %v", constant.ClipboardWindowHotkey, err)
+		lg.Errorf("[wire] register hotkey %s error: %v", shortcut, err)
 	}
 	return app
 }

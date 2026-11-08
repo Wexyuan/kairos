@@ -2,11 +2,12 @@ import type { GlobalTheme } from 'naive-ui'
 import { createGlobalState } from '@vueuse/core'
 import { darkTheme } from 'naive-ui'
 import { WindowService } from '@/services/bindings'
+import { STORAGE_KEYS } from '@/stores/app'
 import { buildThemeOverrides } from '@/theme'
 
 // useTheme exposes naive-ui theme objects and dark mode toggle methods.
 export const useTheme = createGlobalState(() => {
-  const isDark = useDark({ storageKey: 'kairos-color-scheme' })
+  const isDark = useDark({ storageKey: STORAGE_KEYS.colorScheme })
   const toggleDark = useToggle(isDark)
 
   const theme = computed<GlobalTheme | null>(() =>

@@ -10,11 +10,11 @@ import (
 	"context"
 	"github.com/Wexyuan/kairos"
 	"github.com/Wexyuan/kairos/internal/config"
-	"github.com/Wexyuan/kairos/internal/constant"
 	"github.com/Wexyuan/kairos/internal/module/base"
 	"github.com/Wexyuan/kairos/internal/module/clipboard"
 	"github.com/Wexyuan/kairos/internal/module/desktop"
 	"github.com/Wexyuan/kairos/internal/module/notes"
+	"github.com/Wexyuan/kairos/internal/module/settings"
 	"github.com/Wexyuan/kairos/pkg/logger"
 	"github.com/google/wire"
 	"github.com/wailsapp/wails/v3/pkg/application"
@@ -29,7 +29,7 @@ func NewWireApp(cfg *config.Config, lg *logger.Logger) (*application.App, func()
 		return nil, nil, err
 	}
 	windowService := desktop.NewWindowService()
-	notesService := notes.NewNotesService()
+	notesService := notes.NewNotesService(cfg)
 	database, cleanup, err := provideDatabase(cfg, lg)
 	if err != nil {
 		return nil, nil, err
@@ -46,8 +46,14 @@ func NewWireApp(cfg *config.Config, lg *logger.Logger) (*application.App, func()
 	}
 	repository := base.NewRepository(database, snowflake, cache)
 	clipboardRepository := clipboard.NewClipboardRepository(repository)
-	clipboardService := clipboard.NewClipboardService(lg, clipboardRepository)
-	app := NewApp(cfg, lg, string2, windowService, notesService, clipboardService)
+	clipboardService := clipboard.NewClipboardService(cfg, lg, clipboardRepository)
+	settingsService, err := settings.NewSettingsService(cfg)
+	if err != nil {
+		cleanup2()
+		cleanup()
+		return nil, nil, err
+	}
+	app := NewApp(cfg, lg, string2, windowService, notesService, clipboardService, settingsService)
 	return app, func() {
 		cleanup2()
 		cleanup()
@@ -64,7 +70,7 @@ var InfraProviderSet = wire.NewSet(
 )
 
 // ModuleProviderSet defines the business module providers.
-var ModuleProviderSet = wire.NewSet(base.NewRepository, desktop.NewWindowService, notes.NewNotesService, clipboard.NewClipboardRepository, clipboard.NewClipboardService)
+var ModuleProviderSet = wire.NewSet(base.NewRepository, desktop.NewWindowService, notes.NewNotesService, clipboard.NewClipboardRepository, clipboard.NewClipboardService, settings.NewSettingsService)
 
 // NewApp creates a new application.
 func NewApp(
@@ -74,10 +80,12 @@ func NewApp(
 	winSvc *desktop.WindowService,
 	notesSvc *notes.NotesService,
 	clipSvc *clipboard.ClipboardService,
+	settingsSvc *settings.SettingsService,
 ) *application.App {
 	watcherCtx, cancelWatcher := context.WithCancel(context.Background())
 	clipSvc.StartClipboardWatcher(watcherCtx)
 
+	shortcut := cfg.Clipboard.Shortcut
 	var app *application.App
 	app = application.New(application.Options{
 		Name: cfg.App.Name,
@@ -86,21 +94,21 @@ func NewApp(
 		},
 		OnShutdown: func() {
 			cancelWatcher()
-			if err := app.GlobalShortcut.Unregister(constant.ClipboardWindowHotkey); err != nil {
-				lg.Errorf("[wire] unregister hotkey %s error: %v", constant.ClipboardWindowHotkey, err)
+			if err := app.GlobalShortcut.Unregister(shortcut); err != nil {
+				lg.Errorf("[wire] unregister hotkey %s error: %v", shortcut, err)
 			}
 		},
-		Services: []application.Service{application.NewService(winSvc), application.NewService(notesSvc), application.NewService(clipSvc)},
+		Services: []application.Service{application.NewService(winSvc), application.NewService(notesSvc), application.NewService(clipSvc), application.NewService(settingsSvc)},
 		Assets: application.AssetOptions{
 			Handler: application.AssetFileServerFS(kairos.Assets),
 		},
 	},
 	)
 
-	if err := app.GlobalShortcut.Register(constant.ClipboardWindowHotkey, func() {
+	if err := app.GlobalShortcut.Register(shortcut, func() {
 		_ = winSvc.ToggleClipboardWindow(context.Background())
 	}); err != nil {
-		lg.Errorf("[wire] register hotkey %s error: %v", constant.ClipboardWindowHotkey, err)
+		lg.Errorf("[wire] register hotkey %s error: %v", shortcut, err)
 	}
 	return app
 }

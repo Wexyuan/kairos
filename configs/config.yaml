@@ -14,3 +14,11 @@ database:
 
 cache:
   ttl: 300 # expiration in seconds (default to 300)
+
+notes:
+  max_image_size: 10485760 # max note image bytes (default to 10 MiB)
+
+clipboard:
+  shortcut: Ctrl+Shift+V # global hotkey toggling the clipboard window
+  max_entries: 500 # max unpinned entries (default to 500)
+  max_pinned_entries: 50 # max pinned entries (default to 50)
