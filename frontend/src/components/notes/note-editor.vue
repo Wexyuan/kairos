@@ -11,6 +11,14 @@ import { createNoteImageController } from './note-image'
 import '@milkdown/crepe/theme/common/style.css'
 import '@milkdown/crepe/theme/classic.css'
 
+const props = defineProps<{
+  treeCollapsed: boolean // whether the note tree panel is collapsed
+}>()
+
+const emit = defineEmits<{
+  toggleTree: [] // emitted when the tree toggle button is clicked
+}>()
+
 const store = useNotesStore()
 const appStore = useAppStore()
 const { runAction } = useAction()
@@ -482,6 +490,17 @@ function ensureEditor(): Promise<Crepe> {
 <template>
   <div class="panel flex flex-col h-full">
     <div class="px-4 py-2.5 border-b border-ink/5 flex shrink-0 gap-2 items-center">
+      <n-button
+        quaternary
+        size="small"
+        class="icon-btn shrink-0"
+        :title="props.treeCollapsed ? '展开文件树' : '收起文件树'"
+        @click="emit('toggleTree')"
+      >
+        <template #icon>
+          <span class="h-4 w-4" :class="props.treeCollapsed ? 'i-mdi-menu-open' : 'i-mdi-dock-left'" />
+        </template>
+      </n-button>
       <span class="i-mdi-file-document-outline text-ink/45 shrink-0 h-4 w-4" />
       <div class="flex flex-1 min-h-8 min-w-0 items-center" :title="store.activePath || noteTitle">
         <span class="title-sm truncate">
