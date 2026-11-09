@@ -35,6 +35,8 @@ let saveTimer: ReturnType<typeof setTimeout> | undefined // autosave timer
 let saveTask: Promise<boolean> | null = null // in-flight save task
 let noteSwitchRequest = 0 // only the latest note switch may replace editor content
 
+const noteMaxWidthCss = computed(() => `${appStore.noteMaxWidth}px`)
+
 const noteTitle = computed(() => {
   const name = basename(store.activePath)
   return name ? name.replace(/\.md$/i, '') : '未选择笔记'
@@ -545,10 +547,12 @@ function ensureEditor(): Promise<Crepe> {
 
   --crepe-shadow-1: 0 2px 8px rgb(24 34 46 / 6%), 0 0 0 1px color-mix(in srgb, var(--app-ink) 10%, transparent);
   --crepe-shadow-2: 0 8px 24px rgb(24 34 46 / 8%), 0 0 0 1px color-mix(in srgb, var(--app-ink) 10%, transparent);
+
+  --note-max-width: v-bind(noteMaxWidthCss);
 }
 
 :deep(.milkdown .ProseMirror) {
-  max-width: 800px;
+  max-width: var(--note-max-width);
   margin: 0 auto;
   padding: 32px 72px 56px;
 }
@@ -562,7 +566,7 @@ function ensureEditor(): Promise<Crepe> {
 :deep(.milkdown .milkdown-top-bar .top-bar-inner) {
   justify-content: center;
   gap: 2px;
-  max-width: 800px;
+  max-width: var(--note-max-width);
   margin: 0 auto;
 }
 

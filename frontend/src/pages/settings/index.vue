@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useTheme } from '@/composables'
-import { useAppStore } from '@/stores/app'
+import { NOTE_MAX_WIDTH_RANGE, useAppStore } from '@/stores/app'
 
 const MIB = 1024 * 1024
 
@@ -106,6 +106,29 @@ const noteMaxImageSize = computed(() => {
         </div>
 
         <div class="px-4">
+          <div class="py-3 border-b border-ink/5 flex gap-4 items-center justify-between">
+            <div class="min-w-0">
+              <h3 class="title-sm">
+                最大宽度
+              </h3>
+              <p class="text-ink/60 mt-1">
+                笔记工具栏与正文的最大内容宽度
+              </p>
+            </div>
+            <div class="flex shrink-0 gap-2 items-center">
+              <n-input-number
+                size="small"
+                class="w-24"
+                :value="appStore.noteMaxWidth"
+                :min="NOTE_MAX_WIDTH_RANGE.min"
+                :max="NOTE_MAX_WIDTH_RANGE.max"
+                :step="NOTE_MAX_WIDTH_RANGE.step"
+                @update:value="appStore.setNoteMaxWidth"
+              />
+              <span class="text-xs text-ink/60">px</span>
+            </div>
+          </div>
+
           <div class="py-3 flex gap-4 items-center justify-between">
             <div class="min-w-0">
               <h3 class="title-sm">
